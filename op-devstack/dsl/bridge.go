@@ -53,7 +53,7 @@ type StandardBridge struct {
 	disputeGameFactory  bindings.DisputeGameFactory
 	rollupCfg           *rollup.Config
 
-	l1Client         apis.EthClient
+	l1Client         *L1ELNode
 	l2Client         apis.EthClient
 	supervisorClient apis.SupervisorQueryAPI
 
@@ -95,7 +95,7 @@ func NewStandardBridge(t devtest.T, l2Network *L2Network, supervisor *Supervisor
 		disputeGameFactory:  disputeGameFactory,
 		rollupCfg:           l2Network.inner.RollupConfig(),
 
-		l1Client:         l1Client,
+		l1Client:         l1EL,
 		l2Client:         l2Client,
 		supervisorClient: supervisorClient,
 		l1StandardBridge: l1StandardBridge,
@@ -106,7 +106,7 @@ func (b *StandardBridge) GameResolutionDelay() time.Duration {
 	gameType := b.RespectedGameType()
 	gameImplAddr, err := contractio.Read(b.disputeGameFactory.GameImpls(gameType), b.ctx)
 	b.require.NoErrorf(err, "failed to get implementation for game type %v", gameType)
-	game := bindings.NewBindings[bindings.FaultDisputeGame](bindings.WithClient(b.l1Client), bindings.WithTo(gameImplAddr), bindings.WithTest(b.t))
+	game := bindings.NewBindings[bindings.FaultDisputeGame](bindings.WithClient(b.l1Client.EthClient()), bindings.WithTo(gameImplAddr), bindings.WithTest(b.t))
 	clockDuration, err := contractio.Read(game.MaxClockDuration(), b.ctx)
 	b.require.NoErrorf(err, "failed to get max clock duration for game type %v", gameType)
 	return time.Duration(clockDuration) * time.Second
@@ -212,11 +212,12 @@ func (b *StandardBridge) ERC20Deposit(l1TokenAddr common.Address, l2TokenAddr co
 	l2DepositTxHash := types.NewTx(l2DepositTx).Hash()
 
 	// Give time for L2CL to include the L2 deposit tx
+	sequencingWindowDuration := time.Duration(b.rollupCfg.SeqWindowSize) * b.l1Client.EstimateBlockTime()
 	var l2DepositReceipt *types.Receipt
 	b.require.Eventually(func() bool {
 		l2DepositReceipt, err = b.l2Client.TransactionReceipt(b.ctx, l2DepositTxHash)
 		return err == nil
-	}, 60*time.Second, 500*time.Millisecond, "L2 ERC20 deposit never found")
+	}, sequencingWindowDuration, 500*time.Millisecond, "L2 ERC20 deposit never found")
 	b.require.Equal(types.ReceiptStatusSuccessful, l2DepositReceipt.Status, "L2 ERC20 deposit should succeed")
 
 	return &Deposit{
@@ -286,7 +287,7 @@ func (b *StandardBridge) forGamePublished(l2BlockNumber *big.Int) disputeGame {
 			return false
 		}
 		gameContract := bindings.NewBindings[bindings.FaultDisputeGame](
-			bindings.WithClient(b.l1Client),
+			bindings.WithClient(b.l1Client.EthClient()),
 			bindings.WithTo(game.Proxy),
 			bindings.WithTest(b.t))
 		seqNum, err := contractio.Read(gameContract.L2SequenceNumber(), b.ctx)
@@ -552,7 +553,7 @@ func (w *Withdrawal) WaitForDisputeGameResolved() {
 	w.require.NotNil(w.proveReceipt, "Must have proven withdrawal first")
 
 	gameContract := bindings.NewBindings[bindings.FaultDisputeGame](
-		bindings.WithClient(w.bridge.l1Client),
+		bindings.WithClient(w.bridge.l1Client.EthClient()),
 		bindings.WithTo(w.proveParams.DisputeGameAddress),
 		bindings.WithTest(w.t))
 	w.require.Eventually(func() bool {
