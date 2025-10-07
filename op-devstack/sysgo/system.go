@@ -60,6 +60,7 @@ func DefaultMinimalSystem(dest *DefaultMinimalSystemIDs) stack.Option[*Orchestra
 			WithLocalContractSources(),
 			WithCommons(ids.L1.ChainID()),
 			WithPrefundedL2(ids.L1.ChainID(), ids.L2.ChainID()),
+			WithDevFeatureBitmap(devFeatureBitmapFromEnv()),
 		),
 	)
 
@@ -117,6 +118,7 @@ func DefaultMinimalSystemWithSyncTester(dest *DefaultMinimalSystemWithSyncTester
 			WithLocalContractSources(),
 			WithCommons(ids.L1.ChainID()),
 			WithPrefundedL2(ids.L1.ChainID(), ids.L2.ChainID()),
+			WithDevFeatureBitmap(devFeatureBitmapFromEnv()),
 		),
 	)
 
