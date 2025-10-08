@@ -453,6 +453,17 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "devFeature",
+        "type": "bytes32"
+      }
+    ],
+    "name": "InvalidDevFeatureAccess",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "InvalidGameConfigs",
     "type": "error"
