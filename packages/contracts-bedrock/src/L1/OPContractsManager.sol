@@ -306,6 +306,32 @@ abstract contract OPContractsManagerBase {
         return _disputeGame.challenger();
     }
 
+    /// @notice Decodes the game arguments for a permissioned dispute game:
+    /// abi.encodePacked(
+    ///   ...,
+    ///   address proposer,
+    ///   address challenger
+    /// )
+    function decodePermissionedActors(bytes memory _gameArgs)
+        internal
+        pure
+        returns (address proposer_, address challenger_)
+    {
+        assembly {
+            let len := mload(_gameArgs)
+            if lt(len, 40) { revert(0, 0) }
+
+            // pointer to end of data
+            let end := add(add(_gameArgs, 0x20), len)
+
+            // last 20 bytes: challenger
+            challenger_ := shr(96, mload(sub(end, 20)))
+
+            // previous 20 bytes: proposer
+            proposer_ := shr(96, mload(sub(end, 40)))
+        }
+    }
+
     /// @notice Helper function to register permissioned game V2 implementation
     /// @dev Extracted to avoid stack too deep error
     /// @param _input The deployment input data containing all necessary parameters
@@ -530,14 +556,17 @@ contract OPContractsManagerGameTypeAdder is OPContractsManagerBase {
                     setDGFImplementation(dgf, gameConfig.disputeGameType, IDisputeGame(impl), gameArgs);
                     outputs[i].faultDisputeGame = IFaultDisputeGame(impl);
                 } else if (gameConfig.disputeGameType.raw() == GameTypes.PERMISSIONED_CANNON.raw()) {
+                    (address proposer, address challenger) =
+                        decodePermissionedActors(dgf.gameArgs(gameConfig.disputeGameType));
+
                     bytes memory gameArgs = abi.encodePacked(
                         gameConfig.disputeAbsolutePrestate, // 32 bytes
                         gameConfig.vm, // 20 bytes
                         address(getAnchorStateRegistry(gameConfig.systemConfig)), // 20 bytes
                         address(outputs[i].delayedWETH), // 20 bytes
                         l2ChainId, // 32 bytes
-                        getProposer(IPermissionedDisputeGame(address(existingGame))), // 20 bytes
-                        getChallenger(IPermissionedDisputeGame(address(existingGame))) // 20 bytes
+                        proposer, // 20 bytes
+                        challenger // 20 bytes
                     );
                     address impl = implementations().permissionedDisputeGameV2Impl;
                     setDGFImplementation(dgf, gameConfig.disputeGameType, IDisputeGame(impl), gameArgs);
