@@ -88,7 +88,7 @@ contract SaferSafes_Uncategorized_Test is SaferSafes_TestInit {
         LivenessModule2.ModuleConfig memory storedConfig = saferSafes.livenessSafeConfiguration(safeInstance.safe);
         assertEq(storedConfig.livenessResponsePeriod, livenessResponsePeriod);
         assertEq(storedConfig.fallbackOwner, fallbackOwner);
-        assertEq(saferSafes.timelockConfiguration(safeInstance.safe), timelockDelay);
+        assertEq(saferSafes.timelockDelay(safeInstance.safe), timelockDelay);
     }
 
     function test_configure_timelockGuardFirst_succeeds() public {
@@ -112,7 +112,7 @@ contract SaferSafes_Uncategorized_Test is SaferSafes_TestInit {
         LivenessModule2.ModuleConfig memory storedConfig = saferSafes.livenessSafeConfiguration(safeInstance.safe);
         assertEq(storedConfig.livenessResponsePeriod, livenessResponsePeriod);
         assertEq(storedConfig.fallbackOwner, fallbackOwner);
-        assertEq(saferSafes.timelockConfiguration(safeInstance.safe), timelockDelay);
+        assertEq(saferSafes.timelockDelay(safeInstance.safe), timelockDelay);
     }
 
     /// @notice Test that attempting to incorrectly configure the timelock guard after first configuring the liveness
@@ -188,6 +188,14 @@ contract SaferSafes_ChangeOwnershipToFallback_Test is SaferSafes_TestInit {
 
         // Verify guard is deactivated
         assertEq(_getGuard(safeInstance), address(0));
+        TimelockGuard timelockGuard = TimelockGuard(address(livenessModule2));
+
+        // Ensure TimelockGuard properties are cleared
+        assertEq(timelockGuard.timelockDelay(safeInstance.safe), 0);
+        assertEq(timelockGuard.cancellationThreshold(safeInstance.safe), 0);
+
+        // Ensure all pending transactions are cancelled
+        assertEq(timelockGuard.pendingTransactions(Safe(payable(address(safeInstance.safe)))).length, 0);
     }
 
     function test_changeOwnershipToFallback_succeeds() external {
