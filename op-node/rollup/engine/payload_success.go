@@ -65,19 +65,23 @@ func (e *EngineController) logBlockProcessingMetrics(updateEngineFinish time.Tim
 		return
 	}
 
-	buildTime := ev.InsertStarted.Sub(ev.BuildStarted)
+	buildTime := time.Duration(0)
 	insertTime := updateEngineFinish.Sub(ev.InsertStarted)
+	totalTime := insertTime
 
-	var totalTime time.Duration
+	// BuildStarted may be zero if sequencer already built + gossiped a block, but failed during
+	// insertion and needed a retry of the insertion. In that case we use the default values above,
+	// otherwise we calculate buildTime and totalTime below
 	if !ev.BuildStarted.IsZero() {
+		buildTime = ev.InsertStarted.Sub(ev.BuildStarted)
 		totalTime = updateEngineFinish.Sub(ev.BuildStarted)
-	} else {
-		totalTime = insertTime
 	}
 
 	// Protect against divide-by-zero
 	var mgasps float64
 	if totalTime > 0 {
+		// Calculate "block-processing" mgasps.
+		// NOTE: "realtime" mgasps (chain throughput) is a different calculation: (GasUsed / blockPeriod)
 		mgasps = float64(ev.Envelope.ExecutionPayload.GasUsed) * 1000 / float64(totalTime)
 	}
 
