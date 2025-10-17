@@ -416,21 +416,6 @@ func (s *SyncClient) mainLoop() {
 	}
 }
 
-func (s *SyncClient) isInFlight(ctx context.Context, num uint64) (bool, error) {
-	check := inFlightCheck{num: num, result: make(chan bool, 1)}
-	select {
-	case s.inFlightChecks <- check:
-	case <-ctx.Done():
-		return false, errors.New("context cancelled when publishing in flight check")
-	}
-	select {
-	case res := <-check.result:
-		return res, nil
-	case <-ctx.Done():
-		return false, errors.New("context cancelled while waiting for in flight check response")
-	}
-}
-
 // onRangeRequest is exclusively called by the main loop, and has thus direct access to the request bookkeeping state.
 // This function transforms requested block ranges into work for each peer.
 func (s *SyncClient) onRangeRequest(ctx context.Context, req rangeRequest) {
