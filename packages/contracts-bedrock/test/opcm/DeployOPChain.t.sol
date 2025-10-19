@@ -23,6 +23,8 @@ import { IProtocolVersions, ProtocolVersion } from "interfaces/L1/IProtocolVersi
 import { IOPContractsManager } from "interfaces/L1/IOPContractsManager.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
 
+import { TestERC20 } from "test/mocks/TestERC20.sol";
+
 import { Claim, Duration, GameType, GameTypes, Hash, Proposal } from "src/dispute/lib/Types.sol";
 
 contract DeployOPChainInput_Test is Test {
@@ -336,6 +338,8 @@ contract DeployOPChain_TestBase is Test {
     uint64 disputeClockExtension = Duration.unwrap(Duration.wrap(3 hours));
     uint64 disputeMaxClockDuration = Duration.unwrap(Duration.wrap(3.5 days));
 
+    address glmToken;
+
     function setUp() public virtual {
         // Configure and deploy Superchain contracts
         DeploySuperchain deploySuperchain = new DeploySuperchain();
@@ -357,6 +361,8 @@ contract DeployOPChain_TestBase is Test {
         superchainProxyAdmin = dso.superchainProxyAdmin;
         upgradeController = superchainProxyAdmin.owner();
 
+        glmToken = address(new TestERC20());
+
         // Configure and deploy Implementation contracts
         DeployImplementations deployImplementations = new DeployImplementations();
 
@@ -373,7 +379,8 @@ contract DeployOPChain_TestBase is Test {
                 superchainProxyAdmin: superchainProxyAdmin,
                 upgradeController: upgradeController,
                 challenger: challenger,
-                devFeatureBitmap: bytes32(0)
+                devFeatureBitmap: bytes32(0),
+                glmToken: glmToken
             })
         );
 

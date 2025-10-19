@@ -9,6 +9,7 @@ import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
 // Libraries
 import { EOA } from "src/libraries/EOA.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCall } from "src/libraries/SafeCall.sol";
 import { Constants } from "src/libraries/Constants.sol";
 import { Types } from "src/libraries/Types.sol";
@@ -19,6 +20,7 @@ import { GameStatus, GameType } from "src/dispute/lib/Types.sol";
 import { Features } from "src/libraries/Features.sol";
 
 // Interfaces
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IResourceMetering } from "interfaces/L1/IResourceMetering.sol";
@@ -34,6 +36,8 @@ import { ISuperchainConfig } from "interfaces/L1/ISuperchainConfig.sol";
 ///         and L2. Messages sent directly to the OptimismPortal have no form of replayability.
 ///         Users are encouraged to use the L1CrossDomainMessenger for a higher-level interface.
 contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase, ProxyAdminOwnedBase, ISemver {
+    using SafeERC20 for IERC20;
+
     /// @notice Represents a proven withdrawal.
     /// @custom:field disputeGameProxy Game that the withdrawal was proven against.
     /// @custom:field timestamp        Timestamp at which the withdrawal was proven.
@@ -211,8 +215,9 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     }
 
     /// @param _proofMaturityDelaySeconds The proof maturity delay in seconds.
-    constructor(uint256 _proofMaturityDelaySeconds) ReinitializableBase(3) {
+    constructor(uint256 _proofMaturityDelaySeconds, address _glmToken) ReinitializableBase(3) {
         PROOF_MATURITY_DELAY_SECONDS = _proofMaturityDelaySeconds;
+        glmToken = _glmToken;
         _disableInitializers();
     }
 
@@ -659,5 +664,94 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         assembly ("memory-safe") {
             config_ := config
         }
+    }
+
+    address public immutable glmToken;
+    /// @notice Mapping that stores GLM deposits.
+    uint256 public glmDeposits;
+
+    /// @notice Finalizes a withdrawal transaction, using an external proof submitter.
+    /// @param _tx Withdrawal transaction to finalize.
+    /// @param _proofSubmitter Address of the proof submitter.
+    function finalizeGLMWithdrawal(Types.WithdrawalTransaction memory _tx, address _proofSubmitter) public {
+        // Cannot finalize withdrawal transactions while the system is paused.
+        _assertNotPaused();
+
+        // Make sure that the l2Sender has not yet been set. The l2Sender is set to a value other
+        // than the default value when a withdrawal transaction is being finalized. This check is
+        // a defacto reentrancy guard.
+        if (l2Sender != Constants.DEFAULT_L2_SENDER) {
+            revert OptimismPortal_NoReentrancy();
+        }
+
+        // Make sure that the target address is safe.
+        if (_isUnsafeTarget(_tx.target)) {
+            revert OptimismPortal_BadTarget();
+        }
+
+        // Grab the withdrawal.
+        bytes32 withdrawalHash = Hashing.hashWithdrawal(_tx);
+
+        // Check that the withdrawal can be finalized.
+        checkWithdrawal(withdrawalHash, _proofSubmitter);
+
+        // Mark the withdrawal as finalized so it can't be replayed.
+        finalizedWithdrawals[withdrawalHash] = true;
+
+        // All withdrawals are immediately finalized. Replayability can
+        // be achieved through contracts built on top of this contract
+        emit WithdrawalFinalized(withdrawalHash, true);
+
+        // Unlock GLM
+        if (_tx.value > 0) {
+            glmDeposits -= _tx.value;
+            IERC20(glmToken).safeTransfer(_tx.target, _tx.value);
+        }
+    }
+
+    /// @notice Thrown when the gas limit for a deposit is too low.
+    error GL3_ZeroAmount();
+
+    function depositGLM(address _to, uint256 _amount, uint64 _gasLimit, bytes memory _data) public metered(_gasLimit) {
+        if (_amount == 0) {
+            revert GL3_ZeroAmount();
+        }
+
+        // Prevent depositing transactions that have too small of a gas limit. Users should pay
+        // more for more resource usage.
+        if (_gasLimit < minimumGasLimit(uint64(_data.length))) {
+            revert OptimismPortal_GasLimitTooLow();
+        }
+
+        // Prevent the creation of deposit transactions that have too much calldata. This gives an
+        // upper limit on the size of unsafe blocks over the p2p network. 120kb is chosen to ensure
+        // that the transaction can fit into the p2p network policy of 128kb even though deposit
+        // transactions are not gossipped over the p2p network.
+        if (_data.length > 120_000) {
+            revert OptimismPortal_CalldataTooLarge();
+        }
+
+        // Transform the from-address to its alias if the caller is a contract.
+        address from = msg.sender;
+        if (!EOA.isSenderEOA()) {
+            from = AddressAliasHelper.applyL1ToL2Alias(msg.sender);
+        }
+
+        // Compute the opaque data that will be emitted as part of the TransactionDeposited event.
+        // We use opaque data so that we can update the TransactionDeposited event in the future
+        // without breaking the current interface.
+        bytes memory opaqueData = abi.encodePacked(_amount, _amount, _gasLimit, false, _data);
+
+        // Emit a TransactionDeposited event so that the rollup node can derive a deposit
+        // transaction for this deposit.
+        emit TransactionDeposited(from, _to, DEPOSIT_VERSION, opaqueData);
+
+        glmDeposits += _amount;
+        IERC20(glmToken).safeTransferFrom(msg.sender, address(this), _amount);
+    }
+
+    function donateGLM(uint256 _amount) external {
+        glmDeposits += _amount;
+        IERC20(glmToken).safeTransferFrom(msg.sender, address(this), _amount);
     }
 }

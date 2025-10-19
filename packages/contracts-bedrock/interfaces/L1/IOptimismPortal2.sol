@@ -103,5 +103,20 @@ interface IOptimismPortal2 is IProxyAdminOwnedBase {
     function upgrade(IAnchorStateRegistry _anchorStateRegistry) external;
     function version() external pure returns (string memory);
 
-    function __constructor__(uint256 _proofMaturityDelaySeconds) external;
+    function finalizeGLMWithdrawal(
+        Types.WithdrawalTransaction memory _tx,
+        address _proofSubmitter
+    )
+        external;
+    function depositGLM(
+        address _to,
+        uint256 _amount,
+        uint64 _gasLimit,
+        bytes memory _data
+    )
+        external;
+    function glmToken() external view returns (address);
+    function donateGLM(uint256 _amount) external;
+
+    function __constructor__(uint256 _proofMaturityDelaySeconds, address glmToken) external;
 }

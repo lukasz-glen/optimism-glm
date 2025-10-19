@@ -17,6 +17,8 @@ import { IProxy } from "interfaces/universal/IProxy.sol";
 
 import { DeployImplementations } from "scripts/deploy/DeployImplementations.s.sol";
 
+import { TestERC20 } from "test/mocks/TestERC20.sol";
+
 contract DeployImplementations_Test is Test {
     using stdStorage for StdStorage;
 
@@ -33,6 +35,8 @@ contract DeployImplementations_Test is Test {
     IProxyAdmin superchainProxyAdmin = IProxyAdmin(makeAddr("superchainProxyAdmin"));
     address upgradeController = makeAddr("upgradeController");
     address challenger = makeAddr("challenger");
+
+    address glmToken = makeAddr("glmToken");
 
     function setUp() public virtual {
         // We'll need to store some code on these two addresses so that the deployment script checks pass
@@ -105,6 +109,8 @@ contract DeployImplementations_Test is Test {
             })
         );
 
+        glmToken = address(new TestERC20());
+
         ISuperchainConfig superchainConfigImpl = ISuperchainConfig(_superchainConfigImpl);
         vm.prank(address(superchainProxyAdmin));
         IProxy(payable(address(superchainConfigProxy))).upgradeTo(address(superchainConfigImpl));
@@ -121,7 +127,8 @@ contract DeployImplementations_Test is Test {
             protocolVersionsProxy,
             superchainProxyAdmin,
             upgradeController,
-            challenger
+            challenger,
+            glmToken
         );
 
         DeployImplementations.Output memory output = deployImplementations.run(input);
@@ -250,7 +257,8 @@ contract DeployImplementations_Test is Test {
             protocolVersionsProxy,
             superchainProxyAdmin,
             upgradeController,
-            challenger
+            challenger,
+            glmToken
         );
     }
 }

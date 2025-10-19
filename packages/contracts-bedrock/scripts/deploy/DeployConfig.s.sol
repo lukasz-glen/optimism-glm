@@ -79,6 +79,8 @@ contract DeployConfig is Script {
     bool public useUpgradedFork;
     bytes32 public devFeatureBitmap;
 
+    address public glmToken;
+
     function read(string memory _path) public {
         console.log("DeployConfig: reading file %s", _path);
         try vm.readFile(_path) returns (string memory data_) {
@@ -151,6 +153,9 @@ contract DeployConfig is Script {
 
         useInterop = _readOr(_json, "$.useInterop", false);
         devFeatureBitmap = bytes32(_readOr(_json, "$.devFeatureBitmap", 0));
+
+        glmToken = stdJson.readAddress(_json, "$.glmToken");
+
         useUpgradedFork;
     }
 

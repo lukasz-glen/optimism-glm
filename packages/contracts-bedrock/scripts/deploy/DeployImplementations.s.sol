@@ -54,6 +54,7 @@ contract DeployImplementations is Script {
         IProxyAdmin superchainProxyAdmin;
         address upgradeController;
         address challenger;
+        address glmToken;
     }
 
     struct Output {
@@ -358,11 +359,12 @@ contract DeployImplementations is Script {
 
     function deployOptimismPortalImpl(Input memory _input, Output memory _output) private {
         uint256 proofMaturityDelaySeconds = _input.proofMaturityDelaySeconds;
+        address glmToken = _input.glmToken;
         IOptimismPortal impl = IOptimismPortal(
             DeployUtils.createDeterministic({
                 _name: "OptimismPortal2",
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IOptimismPortal.__constructor__, (proofMaturityDelaySeconds))
+                    abi.encodeCall(IOptimismPortal.__constructor__, (proofMaturityDelaySeconds, glmToken))
                 ),
                 _salt: _salt
             })
