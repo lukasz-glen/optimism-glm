@@ -331,19 +331,6 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         return _byteCount * 40 + 21000;
     }
 
-    /// @notice Accepts value so that users can send ETH directly to this contract and have the
-    ///         funds be deposited to their address on L2. This is intended as a convenience
-    ///         function for EOAs. Contracts should call the depositTransaction() function directly
-    ///         otherwise any deposited funds will be lost due to address aliasing.
-    receive() external payable {
-        depositTransaction(msg.sender, msg.value, RECEIVE_DEFAULT_GAS_LIMIT, false, bytes(""));
-    }
-
-    /// @notice Accepts ETH value without triggering a deposit to L2.
-    function donateETH() external payable {
-        // Intentionally empty.
-    }
-
     /// @notice Proves a withdrawal transaction using an Output Root proof. Only callable when the
     ///         OptimismPortal is using Output Roots (superRootsActive flag is false).
     /// @param _tx               Withdrawal transaction to finalize.

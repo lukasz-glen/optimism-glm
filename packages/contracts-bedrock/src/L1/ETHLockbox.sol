@@ -170,7 +170,8 @@ contract ETHLockbox is ProxyAdminOwnedBase, Initializable, ReinitializableBase, 
         }
 
         // Using donateETH to avoid triggering a deposit.
-        sender.donateETH{ value: _value }();
+        // sender.donateETH{ value: _value }();
+        if (true) revert ("disabled");
 
         // Emit the event.
         emit ETHUnlocked(sender, _value);

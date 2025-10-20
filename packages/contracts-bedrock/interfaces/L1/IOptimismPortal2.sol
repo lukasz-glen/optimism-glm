@@ -43,8 +43,6 @@ interface IOptimismPortal2 is IProxyAdminOwnedBase {
     event WithdrawalProven(bytes32 indexed withdrawalHash, address indexed from, address indexed to);
     event WithdrawalProvenExtension1(bytes32 indexed withdrawalHash, address indexed proofSubmitter);
 
-    receive() external payable;
-
     function anchorStateRegistry() external view returns (IAnchorStateRegistry);
     function ethLockbox() external view returns (IETHLockbox);
     function checkWithdrawal(bytes32 _withdrawalHash, address _proofSubmitter) external view;
@@ -60,7 +58,6 @@ interface IOptimismPortal2 is IProxyAdminOwnedBase {
     function disputeGameBlacklist(IDisputeGame _disputeGame) external view returns (bool);
     function disputeGameFactory() external view returns (IDisputeGameFactory);
     function disputeGameFinalityDelaySeconds() external view returns (uint256);
-    function donateETH() external payable;
     function superchainConfig() external view returns (ISuperchainConfig);
     function finalizeWithdrawalTransaction(Types.WithdrawalTransaction memory _tx) external;
     function finalizeWithdrawalTransactionExternalProof(

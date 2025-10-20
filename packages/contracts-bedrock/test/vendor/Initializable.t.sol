@@ -128,7 +128,7 @@ contract Initializer_Test is CommonTest {
                     name: "OptimismPortal2Impl",
                     target: EIP1967Helper.getImplementation(address(optimismPortal2)),
                     initCalldata: abi.encodeCall(
-                        IOptimismPortalInterop(payable(optimismPortal2)).initialize,
+                        IOptimismPortalInterop(payable(address(optimismPortal2))).initialize,
                         (systemConfig, anchorStateRegistry, ethLockbox)
                     )
                 })
@@ -139,7 +139,7 @@ contract Initializer_Test is CommonTest {
                     name: "OptimismPortal2Proxy",
                     target: address(optimismPortal2),
                     initCalldata: abi.encodeCall(
-                        IOptimismPortalInterop(payable(optimismPortal2)).initialize,
+                        IOptimismPortalInterop(payable(address(optimismPortal2))).initialize,
                         (systemConfig, anchorStateRegistry, ethLockbox)
                     )
                 })

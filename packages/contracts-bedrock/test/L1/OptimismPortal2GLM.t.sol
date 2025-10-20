@@ -297,7 +297,7 @@ contract OptimismPortal2GLM_Initialize_Test is OptimismPortal2GLM_TestInit {
 
         // Call the `initialize` function with the sender
         vm.prank(_sender);
-        IOptimismPortalInterop(payable(optimismPortal2)).initialize(systemConfig, anchorStateRegistry, ethLockbox);
+        IOptimismPortalInterop(payable(address(optimismPortal2))).initialize(systemConfig, anchorStateRegistry, ethLockbox);
     }
 
     /// @notice Tests that the initialize function reverts when lockbox state is invalid.
@@ -481,7 +481,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Call the upgrade function.
         vm.prank(address(optimismPortal2.proxyAdmin()));
-        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
             IAnchorStateRegistry(_newAnchorStateRegistry), IETHLockbox(ethLockbox)
         );
 
@@ -499,7 +499,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Now we migrate liquidity.
         vm.prank(proxyAdminOwner);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
 
         // Balance has been updated.
         assertEq(address(optimismPortal2).balance, 0);
@@ -516,14 +516,14 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Trigger first upgrade.
         vm.prank(address(optimismPortal2.proxyAdmin()));
-        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
 
         // Try to trigger second upgrade.
         vm.prank(address(optimismPortal2.proxyAdmin()));
         vm.expectRevert("Initializable: contract is already initialized");
-        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
@@ -545,7 +545,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Try to trigger upgrade().
         vm.expectRevert("Initializable: contract is already initialized");
-        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
@@ -567,7 +567,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Call the `upgrade` function with the sender
         vm.prank(_sender);
-        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
@@ -743,137 +743,36 @@ contract OptimismPortal2GLM_NumProofSubmitters_Test is OptimismPortal2GLM_TestIn
 /// @notice Test contract for OptimismPortal2 `receive` function.
 contract OptimismPortal2GLM_Receive_Test is OptimismPortal2GLM_TestInit {
     /// @notice Tests that `receive` successdully deposits ETH.
-    function testFuzz_receive_succeedsSkip(uint256 _value) external {
-        // Prevent overflow on an upgrade context
-        _value = bound(_value, 0, type(uint256).max - address(ethLockbox).balance);
-        uint256 balanceBefore = address(optimismPortal2).balance;
-        uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _value = bound(_value, 0, type(uint256).max - balanceBefore);
-
-        vm.expectEmit(address(optimismPortal2));
-        emitTransactionDeposited({
-            _from: alice,
-            _to: alice,
-            _value: _value,
-            _mint: _value,
-            _gasLimit: 100_000,
-            _isCreation: false,
-            _data: hex""
-        });
-
-        if (isUsingLockbox()) {
-            // Expect call to the ETHLockbox to lock the funds only if the value is greater than 0.
-            vm.expectCall(address(ethLockbox), _value, abi.encodeCall(ethLockbox.lockETH, ()), _value > 0 ? 1 : 0);
-        }
+    function test_receive_reverts() external {
+        uint256 _value = 1;
 
         // give alice money and send as an eoa
         vm.deal(alice, _value);
         vm.prank(alice, alice);
         (bool s,) = address(optimismPortal2).call{ value: _value }(hex"");
 
-        assertTrue(s);
-
-        if (isUsingLockbox()) {
-            assertEq(address(optimismPortal2).balance, balanceBefore);
-            assertEq(address(ethLockbox).balance, lockboxBalanceBefore + _value);
-        } else {
-            assertEq(address(optimismPortal2).balance, balanceBefore + _value);
-        }
-    }
-
-    function testFuzz_receive_withLockbox_succeedsSkip(uint256 _value) external {
-        // Prevent overflow on an upgrade context.
-        // We use a dummy lockbox here because the real one won't work for upgrade tests.
-        address dummyLockbox = address(0xdeadbeef);
-        _value = bound(_value, 0, type(uint256).max - address(dummyLockbox).balance);
-        uint256 balanceBefore = address(optimismPortal2).balance;
-        uint256 lockboxBalanceBefore = address(dummyLockbox).balance;
-        _value = bound(_value, 0, type(uint256).max - balanceBefore);
-
-        // Enable the lockbox.
-        forceEnableLockbox(dummyLockbox);
-
-        // Expect the transaction deposited event.
-        vm.expectEmit(address(optimismPortal2));
-        emitTransactionDeposited({
-            _from: alice,
-            _to: alice,
-            _value: _value,
-            _mint: _value,
-            _gasLimit: 100_000,
-            _isCreation: false,
-            _data: hex""
-        });
-
-        // Expect call to the ETHLockbox to lock the funds only if the value is greater than 0.
-        vm.expectCall(address(dummyLockbox), _value, abi.encodeCall(ethLockbox.lockETH, ()), _value > 0 ? 1 : 0);
-
-        // give alice money and send as an eoa
-        vm.deal(alice, _value);
-        vm.prank(alice, alice);
-        (bool s,) = address(optimismPortal2).call{ value: _value }(hex"");
-
-        assertTrue(s);
-        assertEq(address(optimismPortal2).balance, balanceBefore);
-        assertEq(address(dummyLockbox).balance, lockboxBalanceBefore + _value);
+        assertFalse(s);
     }
 }
 
-/// @title OptimismPortal2GLM_DonateETH_Test
-/// @notice Test contract for OptimismPortal2 `donateETH` function.
-contract OptimismPortal2GLM_DonateETH_Test is OptimismPortal2GLM_TestInit {
-    /// @notice Tests that the donateETH function donates ETH and does no state read/write.
-    function test_donateETH_succeeds(uint256 _amount) external {
-        vm.startPrank(alice);
-        vm.deal(alice, _amount);
+/// @title OptimismPortal2GLM_DonateGLM_Test
+/// @notice Test contract for OptimismPortal2 `donateGLM` function.
+contract OptimismPortal2GLM_DonateGLM_Test is OptimismPortal2GLM_TestInit {
+    /// @notice Tests that the donateGLM function donates GLM.
+    function test_donateGLM_succeeds() external {
+        address _glmToken = address(new TestERC20());
+        vm.etch(optimismPortal2.glmToken(), _glmToken.code);
 
-        uint256 preBalance = address(optimismPortal2).balance;
-        uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _amount = bound(_amount, 0, type(uint256).max - preBalance);
+        IERC20(optimismPortal2.glmToken()).approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(address(this), 100);
 
-        vm.startStateDiffRecording();
-        optimismPortal2.donateETH{ value: _amount }();
-        VmSafe.AccountAccess[] memory accountAccesses = vm.stopAndReturnStateDiff();
+        uint256 preBalance = IERC20(optimismPortal2.glmToken()).balanceOf(address(this));
 
-        // not necessary since it's checked below
-        assertEq(address(optimismPortal2).balance, preBalance + _amount);
+        optimismPortal2.donateGLM(100);
 
-        // check that the ETHLockbox balance is unchanged
-        assertEq(address(ethLockbox).balance, lockboxBalanceBefore);
+        uint256 postBalance = IERC20(optimismPortal2.glmToken()).balanceOf(address(this));
 
-        // 0 for extcodesize of proxy before being called by this test,
-        // 1 for the call to the proxy by the pranked address
-        // 2 for the delegate call to the impl by the proxy
-        assertEq(accountAccesses.length, 3);
-        assertEq(uint8(accountAccesses[1].kind), uint8(VmSafe.AccountAccessKind.Call));
-        assertEq(uint8(accountAccesses[2].kind), uint8(VmSafe.AccountAccessKind.DelegateCall));
-
-        // to of 1 is the optimism portal proxy
-        assertEq(accountAccesses[1].account, address(optimismPortal2));
-
-        // accessor is the pranked address
-        assertEq(accountAccesses[1].accessor, alice);
-
-        // value is the amount of ETH donated
-        assertEq(accountAccesses[1].value, _amount);
-
-        // old balance is the balance of the optimism portal before the donation
-        assertEq(accountAccesses[1].oldBalance, preBalance);
-
-        // new balance is the balance of the optimism portal after the donation
-        assertEq(accountAccesses[1].newBalance, preBalance + _amount);
-
-        // data is the selector of the donateETH function
-        assertEq(accountAccesses[1].data, abi.encodePacked(optimismPortal2.donateETH.selector));
-
-        // reverted of alice call to proxy is false
-        assertEq(accountAccesses[1].reverted, false);
-
-        // reverted of delegate call of proxy to impl is false
-        assertEq(accountAccesses[2].reverted, false);
-
-        // storage accesses of delegate call of proxy to impl is empty (No storage read or write!)
-        assertEq(accountAccesses[2].storageAccesses.length, 0);
+        assertEq(preBalance + 100, postBalance);
     }
 }
 
@@ -891,7 +790,7 @@ contract OptimismPortal2GLM_MigrateLiquidity_Test is CommonTest {
         vm.assume(_caller != optimismPortal2.proxyAdminOwner());
         vm.expectRevert(IProxyAdminOwnedBase.ProxyAdminOwnedBase_NotProxyAdminOwner.selector);
         vm.prank(_caller);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
     }
 
     /// @notice Tests that the liquidity migration from the portal to the lockbox succeeds.
@@ -908,7 +807,7 @@ contract OptimismPortal2GLM_MigrateLiquidity_Test is CommonTest {
         emit ETHMigrated(address(ethLockbox), _portalBalance);
 
         vm.prank(proxyAdminOwner);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
 
         assertEq(address(optimismPortal2).balance, 0);
         assertEq(address(ethLockbox).balance, lockboxBalanceBefore + _portalBalance);
@@ -930,7 +829,7 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         vm.expectRevert(IProxyAdminOwnedBase.ProxyAdminOwnedBase_NotProxyAdminOwner.selector);
 
         vm.prank(_caller);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
             IETHLockbox(address(1)), IAnchorStateRegistry(address(1))
         );
     }
@@ -950,7 +849,7 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         // Expect the migration to revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_MigratingToSameRegistry.selector);
         vm.prank(caller);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
             IETHLockbox(_newLockbox), newAnchorStateRegistry
         );
     }
@@ -969,13 +868,13 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         emit PortalMigrated(oldLockbox, _newLockbox, oldAnchorStateRegistry, _newAnchorStateRegistry);
 
         vm.prank(optimismPortal2.proxyAdminOwner());
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
             IETHLockbox(_newLockbox), IAnchorStateRegistry(_newAnchorStateRegistry)
         );
 
         assertEq(address(optimismPortal2.ethLockbox()), _newLockbox);
         assertEq(address(optimismPortal2.anchorStateRegistry()), _newAnchorStateRegistry);
-        assertTrue(IOptimismPortalInterop(payable(optimismPortal2)).superRootsActive());
+        assertTrue(IOptimismPortalInterop(payable(address(optimismPortal2))).superRootsActive());
     }
 
     /// @notice Tests that `migrateToSuperRoots` reverts when the system is paused.
@@ -987,7 +886,7 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         address caller = optimismPortal2.proxyAdminOwner();
         vm.expectRevert(IOptimismPortal.OptimismPortal_CallPaused.selector);
         vm.prank(caller);
-        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
             IETHLockbox(address(1)), IAnchorStateRegistry(address(1))
         );
     }
@@ -1263,7 +1162,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_WrongProofMethod.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
             _outputRootProof: _outputRootProof,
@@ -1288,7 +1187,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_WrongProofMethod.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1318,7 +1217,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidSuperRootProof.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1355,7 +1254,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootIndex.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: outputRootWithChainIdArr.length, // out of bounds
@@ -1394,7 +1293,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootChainId.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1433,7 +1332,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootProof.selector);
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1467,7 +1366,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
         vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(expectedSuperRoot));
 
         // Should succeed.
-        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -2806,8 +2705,12 @@ contract OptimismPortal2GLM_depositGLM_Test is OptimismPortal2GLM_TestInit {
 contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_TestInit {
     /// @notice Tests that `finalizeWithdrawalTransaction` succeeds when _tx.data is empty.
     function test_finalizeGLMWithdrawal_noTxData_succeeds() external {
-        address _glmToken = address(new TestERC20());
-        vm.etch(optimismPortal2.glmToken(), _glmToken.code);
+        StorageSlot memory glmDepositsSlot = ForgeArtifacts.getSlot("OptimismPortal2", "glmDeposits");
+
+        {
+            address _glmToken = address(new TestERC20());
+            vm.etch(optimismPortal2.glmToken(), _glmToken.code);
+        }
 
         IERC20(optimismPortal2.glmToken()).approve(address(optimismPortal2), 100);
         TestERC20(optimismPortal2.glmToken()).mint(address(this), 100);
@@ -2861,7 +2764,8 @@ contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_Tes
             vm.deal(address(ethLockbox), 0xFFFFFFFF);
         }
 
-        uint256 bobBalanceBefore = bob.balance;
+        uint256 glmDepositsBefore = uint256(vm.load(address(optimismPortal2), bytes32(glmDepositsSlot.slot)));
+        uint256 bobBalanceBefore = IERC20(optimismPortal2.glmToken()).balanceOf(bob);
 
         vm.expectEmit(address(optimismPortal2));
         emit WithdrawalProven(_withdrawalHash_noData, alice, bob);
@@ -2884,7 +2788,10 @@ contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_Tes
 
         optimismPortal2.finalizeGLMWithdrawal(_defaultTx_noData, address(this));
 
-        // assert(bob.balance == bobBalanceBefore + 100);
+        uint256 glmDepositsAfter = uint256(vm.load(address(optimismPortal2), bytes32(glmDepositsSlot.slot)));
+        uint256 bobBalanceAfter = IERC20(optimismPortal2.glmToken()).balanceOf(bob);
+        assert(bobBalanceAfter == bobBalanceBefore + 100);
+        assert(glmDepositsBefore == glmDepositsAfter + 100);
     }
 
 }
