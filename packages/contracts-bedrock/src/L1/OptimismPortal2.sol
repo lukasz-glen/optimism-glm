@@ -331,6 +331,17 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         return _byteCount * 40 + 21000;
     }
 
+    /// @notice Left for the interface compliance.
+    receive() external payable {
+        revert("disabled");
+    }
+
+    /// @notice Left for the interface compliance.
+    function donateETH() external payable {
+        revert("disabled");
+    }
+
+
     /// @notice Proves a withdrawal transaction using an Output Root proof. Only callable when the
     ///         OptimismPortal is using Output Roots (superRootsActive flag is false).
     /// @param _tx               Withdrawal transaction to finalize.
@@ -432,77 +443,14 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         finalizeWithdrawalTransactionExternalProof(_tx, msg.sender);
     }
 
-    /// @notice Finalizes a withdrawal transaction, using an external proof submitter.
-    /// @param _tx Withdrawal transaction to finalize.
-    /// @param _proofSubmitter Address of the proof submitter.
+    /// @notice Left for the interface compliance.
     function finalizeWithdrawalTransactionExternalProof(
-        Types.WithdrawalTransaction memory _tx,
-        address _proofSubmitter
+        Types.WithdrawalTransaction memory /*_tx*/,
+        address /*_proofSubmitter*/
     )
         public
     {
-        // Cannot finalize withdrawal transactions while the system is paused.
-        _assertNotPaused();
-
-        // Make sure that the l2Sender has not yet been set. The l2Sender is set to a value other
-        // than the default value when a withdrawal transaction is being finalized. This check is
-        // a defacto reentrancy guard.
-        if (l2Sender != Constants.DEFAULT_L2_SENDER) {
-            revert OptimismPortal_NoReentrancy();
-        }
-
-        // Make sure that the target address is safe.
-        if (_isUnsafeTarget(_tx.target)) {
-            revert OptimismPortal_BadTarget();
-        }
-
-        // Grab the withdrawal.
-        bytes32 withdrawalHash = Hashing.hashWithdrawal(_tx);
-
-        // Check that the withdrawal can be finalized.
-        checkWithdrawal(withdrawalHash, _proofSubmitter);
-
-        // Mark the withdrawal as finalized so it can't be replayed.
-        finalizedWithdrawals[withdrawalHash] = true;
-
-        // If using ETHLockbox, unlock the ETH from the ETHLockbox.
-        if (_isUsingLockbox()) {
-            if (_tx.value > 0) ethLockbox.unlockETH(_tx.value);
-        }
-
-        // Set the l2Sender so contracts know who triggered this withdrawal on L2.
-        l2Sender = _tx.sender;
-
-        // Trigger the call to the target contract. We use a custom low level method
-        // SafeCall.callWithMinGas to ensure two key properties
-        //   1. Target contracts cannot force this call to run out of gas by returning a very large
-        //      amount of data (and this is OK because we don't care about the returndata here).
-        //   2. The amount of gas provided to the execution context of the target is at least the
-        //      gas limit specified by the user. If there is not enough gas in the current context
-        //      to accomplish this, `callWithMinGas` will revert.
-        bool success = SafeCall.callWithMinGas(_tx.target, _tx.gasLimit, _tx.value, _tx.data);
-
-        // Reset the l2Sender back to the default value.
-        l2Sender = Constants.DEFAULT_L2_SENDER;
-
-        // All withdrawals are immediately finalized. Replayability can
-        // be achieved through contracts built on top of this contract
-        emit WithdrawalFinalized(withdrawalHash, success);
-
-        // If using ETHLockbox, send ETH back to the Lockbox in the case of a failed transaction or
-        // it'll get stuck here and would need to be moved back via admin action.
-        if (_isUsingLockbox()) {
-            if (!success && _tx.value > 0) {
-                ethLockbox.lockETH{ value: _tx.value }();
-            }
-        }
-
-        // Reverting here is useful for determining the exact gas cost to successfully execute the
-        // sub call to the target contract if the minimum gas limit specified by the user would not
-        // be sufficient to execute the sub call.
-        if (!success && tx.origin == Constants.ESTIMATION_ADDRESS) {
-            revert OptimismPortal_GasEstimation();
-        }
+        revert("disabled");
     }
 
     /// @notice Checks that a withdrawal has been proven and is ready to be finalized.
@@ -544,67 +492,19 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         }
     }
 
-    /// @notice Accepts deposits of ETH and data, and emits a TransactionDeposited event for use in
-    ///         deriving deposit transactions. Note that if a deposit is made by a contract, its
-    ///         address will be aliased when retrieved using `tx.origin` or `msg.sender`. Consider
-    ///         using the CrossDomainMessenger contracts for a simpler developer experience.
-    /// @dev    The `msg.value` is locked on the ETHLockbox and minted as ETH when the deposit
-    ///         arrives on L2, while `_value` specifies how much ETH to send to the target.
-    /// @param _to         Target address on L2.
-    /// @param _value      ETH value to send to the recipient.
-    /// @param _gasLimit   Amount of L2 gas to purchase by burning gas on L1.
-    /// @param _isCreation Whether or not the transaction is a contract creation.
-    /// @param _data       Data to trigger the recipient with.
+    /// @notice Left for the interface compliance.
     function depositTransaction(
-        address _to,
-        uint256 _value,
-        uint64 _gasLimit,
-        bool _isCreation,
-        bytes memory _data
+        address /*_to*/,
+        uint256 /*_value*/,
+        uint64 /*_gasLimit*/,
+        bool /*_isCreation*/,
+        bytes memory /*_data*/
     )
         public
         payable
-        metered(_gasLimit)
+        /*metered(_gasLimit)*/
     {
-        // If using ETHLockbox, lock the ETH in the ETHLockbox.
-        if (_isUsingLockbox()) {
-            if (msg.value > 0) ethLockbox.lockETH{ value: msg.value }();
-        }
-
-        // Just to be safe, make sure that people specify address(0) as the target when doing
-        // contract creations.
-        if (_isCreation && _to != address(0)) {
-            revert OptimismPortal_BadTarget();
-        }
-
-        // Prevent depositing transactions that have too small of a gas limit. Users should pay
-        // more for more resource usage.
-        if (_gasLimit < minimumGasLimit(uint64(_data.length))) {
-            revert OptimismPortal_GasLimitTooLow();
-        }
-
-        // Prevent the creation of deposit transactions that have too much calldata. This gives an
-        // upper limit on the size of unsafe blocks over the p2p network. 120kb is chosen to ensure
-        // that the transaction can fit into the p2p network policy of 128kb even though deposit
-        // transactions are not gossipped over the p2p network.
-        if (_data.length > 120_000) {
-            revert OptimismPortal_CalldataTooLarge();
-        }
-
-        // Transform the from-address to its alias if the caller is a contract.
-        address from = msg.sender;
-        if (!EOA.isSenderEOA()) {
-            from = AddressAliasHelper.applyL1ToL2Alias(msg.sender);
-        }
-
-        // Compute the opaque data that will be emitted as part of the TransactionDeposited event.
-        // We use opaque data so that we can update the TransactionDeposited event in the future
-        // without breaking the current interface.
-        bytes memory opaqueData = abi.encodePacked(msg.value, _value, _gasLimit, _isCreation, _data);
-
-        // Emit a TransactionDeposited event so that the rollup node can derive a deposit
-        // transaction for this deposit.
-        emit TransactionDeposited(from, _to, DEPOSIT_VERSION, opaqueData);
+        revert("disabled");
     }
 
     /// @notice External getter for the number of proof submitters for a withdrawal hash.
@@ -697,11 +597,11 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     }
 
     /// @notice Thrown when the gas limit for a deposit is too low.
-    error GL3_ZeroAmount();
+    error GLM_ZeroAmount();
 
     function depositGLM(address _to, uint256 _amount, uint64 _gasLimit, bytes memory _data) public metered(_gasLimit) {
         if (_amount == 0) {
-            revert GL3_ZeroAmount();
+            revert GLM_ZeroAmount();
         }
 
         // Prevent depositing transactions that have too small of a gas limit. Users should pay

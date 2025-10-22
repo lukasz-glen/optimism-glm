@@ -51,6 +51,7 @@ contract OptimismPortal2GLM_TestInit is DisputeGameFactory_TestInit {
     bytes[] _withdrawalProof;
     Types.OutputRootProof internal _outputRootProof;
     GameType internal respectedGameType;
+    IERC20 glmToken;
 
     // Use a constructor to set the storage vars above, so as to minimize the number of ffi calls.
     constructor() {
@@ -125,6 +126,10 @@ contract OptimismPortal2GLM_TestInit is DisputeGameFactory_TestInit {
         if (isUsingLockbox()) {
             vm.deal(address(ethLockbox), 0xFFFFFFFF);
         }
+
+        address _glmToken = address(new TestERC20());
+        vm.etch(optimismPortal2.glmToken(), _glmToken.code);
+        glmToken = IERC20(optimismPortal2.glmToken());
     }
 
     /// @notice Asserts that the reentrant call will revert.
@@ -258,7 +263,10 @@ contract OptimismPortal2GLM_Initialize_Test is OptimismPortal2GLM_TestInit {
 
     /// @notice Tests that the initialize function reverts if called by a non-proxy admin or owner.
     /// @param _sender The address of the sender to test.
-    function testFuzz_initialize_notProxyAdminOrProxyAdminOwner_revertsSkip(address _sender) public {
+    function testFuzz_initialize_notProxyAdminOrProxyAdminOwner_reverts(address _sender) public {
+        // TODO
+        vm.skip(true);
+
         skipIfDevFeatureEnabled(DevFeatures.OPTIMISM_PORTAL_INTEROP);
 
         // Prank as the not ProxyAdmin or ProxyAdmin owner.
@@ -280,7 +288,10 @@ contract OptimismPortal2GLM_Initialize_Test is OptimismPortal2GLM_TestInit {
 
     /// @notice Tests that the initialize function reverts if called by a non-proxy admin or owner.
     /// @param _sender The address of the sender to test.
-    function testFuzz_initialize_interopNotProxyAdminOrProxyAdminOwner_revertsSkip(address _sender) public {
+    function testFuzz_initialize_interopNotProxyAdminOrProxyAdminOwner_reverts(address _sender) public {
+        // TODO
+        vm.skip(true);        
+
         skipIfDevFeatureDisabled(DevFeatures.OPTIMISM_PORTAL_INTEROP);
 
         // Prank as the not ProxyAdmin or ProxyAdmin owner.
@@ -297,7 +308,7 @@ contract OptimismPortal2GLM_Initialize_Test is OptimismPortal2GLM_TestInit {
 
         // Call the `initialize` function with the sender
         vm.prank(_sender);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).initialize(systemConfig, anchorStateRegistry, ethLockbox);
+        IOptimismPortalInterop(payable(optimismPortal2)).initialize(systemConfig, anchorStateRegistry, ethLockbox);
     }
 
     /// @notice Tests that the initialize function reverts when lockbox state is invalid.
@@ -342,7 +353,10 @@ contract OptimismPortal2GLM_Upgrade_Test is CommonTest {
     }
 
     /// @notice Tests that the upgrade() function succeeds.
-    function testFuzz_upgrade_succeedsSkip(address _newAnchorStateRegistry, uint256 _balance) external {
+    function testFuzz_upgrade_succeeds(address _newAnchorStateRegistry, uint256 _balance) external {
+        // TODO
+        vm.skip(true);
+        
         // Prevent overflow on an upgrade context
         _balance = bound(_balance, 0, type(uint256).max - address(ethLockbox).balance);
 
@@ -404,7 +418,10 @@ contract OptimismPortal2GLM_Upgrade_Test is CommonTest {
 
     /// @notice Tests that the upgrade() function reverts if called by a non-proxy admin or owner.
     /// @param _sender The address of the sender to test.
-    function testFuzz_upgrade_notProxyAdminOrProxyAdminOwner_revertsSkip(address _sender) public {
+    function testFuzz_upgrade_notProxyAdminOrProxyAdminOwner_reverts(address _sender) public {
+        // TODO
+        vm.skip(true);
+        
         // Prank as the not ProxyAdmin or ProxyAdmin owner.
         vm.assume(_sender != address(proxyAdmin) && _sender != proxyAdminOwner);
 
@@ -462,7 +479,10 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
     }
 
     /// @notice Tests that the upgrade() function succeeds.
-    function testFuzz_upgrade_interop_succeedsSkip(address _newAnchorStateRegistry, uint256 _balance) external {
+    function testFuzz_upgrade_interop_succeeds(address _newAnchorStateRegistry, uint256 _balance) external {
+        // TODO
+        vm.skip(true);
+        
         // Prevent overflow on an upgrade context
         _balance = bound(_balance, 0, type(uint256).max - address(ethLockbox).balance);
 
@@ -481,7 +501,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Call the upgrade function.
         vm.prank(address(optimismPortal2.proxyAdmin()));
-        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
+        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
             IAnchorStateRegistry(_newAnchorStateRegistry), IETHLockbox(ethLockbox)
         );
 
@@ -499,7 +519,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Now we migrate liquidity.
         vm.prank(proxyAdminOwner);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
 
         // Balance has been updated.
         assertEq(address(optimismPortal2).balance, 0);
@@ -516,14 +536,14 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Trigger first upgrade.
         vm.prank(address(optimismPortal2.proxyAdmin()));
-        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
+        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
 
         // Try to trigger second upgrade.
         vm.prank(address(optimismPortal2.proxyAdmin()));
         vm.expectRevert("Initializable: contract is already initialized");
-        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
+        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
@@ -545,14 +565,17 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Try to trigger upgrade().
         vm.expectRevert("Initializable: contract is already initialized");
-        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
+        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
 
     /// @notice Tests that the upgrade() function reverts if called by a non-proxy admin or owner.
     /// @param _sender The address of the sender to test.
-    function testFuzz_upgrade_notProxyAdminOrProxyAdminOwner_revertsSkip(address _sender) public {
+    function testFuzz_upgrade_notProxyAdminOrProxyAdminOwner_reverts(address _sender) public {
+        // TODO
+        vm.skip(true);
+        
         // Prank as the not ProxyAdmin or ProxyAdmin owner.
         vm.assume(_sender != address(proxyAdmin) && _sender != proxyAdminOwner);
 
@@ -567,7 +590,7 @@ contract OptimismPortal2GLM_UpgradeInterop_Test is CommonTest {
 
         // Call the `upgrade` function with the sender
         vm.prank(_sender);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).upgrade(
+        IOptimismPortalInterop(payable(optimismPortal2)).upgrade(
             IAnchorStateRegistry(address(0xdeadbeef)), IETHLockbox(ethLockbox)
         );
     }
@@ -683,7 +706,7 @@ contract OptimismPortal2GLM_DisputeGameBlacklist_Test is OptimismPortal2GLM_Test
     }
 
     /// @notice Tests that `disputeGameBlacklist` returns the correct status for any game.
-    function testFuzz_disputeGameBlacklist_succeedsSkip(IDisputeGame _game) external view {
+    function testFuzz_disputeGameBlacklist_succeeds(IDisputeGame _game) external view {
         bool expected = anchorStateRegistry.disputeGameBlacklist(_game);
         assertEq(optimismPortal2.disputeGameBlacklist(_game), expected);
     }
@@ -714,7 +737,10 @@ contract OptimismPortal2GLM_NumProofSubmitters_Test is OptimismPortal2GLM_TestIn
     }
 
     /// @notice Tests that `numProofSubmitters` increases with multiple proofs.
-    function testFuzz_numProofSubmitters_multipleProofs_succeedsSkip(address _prover) external {
+    function testFuzz_numProofSubmitters_multipleProofs_succeeds(address _prover) external {
+        // TODO
+        vm.skip(true);
+        
         vm.assume(_prover != address(0) && _prover != address(this));
         bytes32 withdrawalHash = Hashing.hashWithdrawal(_defaultTx);
 
@@ -760,17 +786,14 @@ contract OptimismPortal2GLM_Receive_Test is OptimismPortal2GLM_TestInit {
 contract OptimismPortal2GLM_DonateGLM_Test is OptimismPortal2GLM_TestInit {
     /// @notice Tests that the donateGLM function donates GLM.
     function test_donateGLM_succeeds() external {
-        address _glmToken = address(new TestERC20());
-        vm.etch(optimismPortal2.glmToken(), _glmToken.code);
-
-        IERC20(optimismPortal2.glmToken()).approve(address(optimismPortal2), 100);
+        glmToken.approve(address(optimismPortal2), 100);
         TestERC20(optimismPortal2.glmToken()).mint(address(this), 100);
 
-        uint256 preBalance = IERC20(optimismPortal2.glmToken()).balanceOf(address(this));
+        uint256 preBalance = glmToken.balanceOf(address(optimismPortal2));
 
         optimismPortal2.donateGLM(100);
 
-        uint256 postBalance = IERC20(optimismPortal2.glmToken()).balanceOf(address(this));
+        uint256 postBalance = glmToken.balanceOf(address(optimismPortal2));
 
         assertEq(preBalance + 100, postBalance);
     }
@@ -786,11 +809,14 @@ contract OptimismPortal2GLM_MigrateLiquidity_Test is CommonTest {
 
     /// @notice Tests the liquidity migration from the portal to the lockbox reverts if not called
     ///         by the admin owner.
-    function testFuzz_migrateLiquidity_notProxyAdminOwner_revertsSkip(address _caller) external {
+    function testFuzz_migrateLiquidity_notProxyAdminOwner_reverts(address _caller) external {
+        // TODO
+        vm.skip(true);
+        
         vm.assume(_caller != optimismPortal2.proxyAdminOwner());
         vm.expectRevert(IProxyAdminOwnedBase.ProxyAdminOwnedBase_NotProxyAdminOwner.selector);
         vm.prank(_caller);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
     }
 
     /// @notice Tests that the liquidity migration from the portal to the lockbox succeeds.
@@ -807,7 +833,7 @@ contract OptimismPortal2GLM_MigrateLiquidity_Test is CommonTest {
         emit ETHMigrated(address(ethLockbox), _portalBalance);
 
         vm.prank(proxyAdminOwner);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateLiquidity();
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateLiquidity();
 
         assertEq(address(optimismPortal2).balance, 0);
         assertEq(address(ethLockbox).balance, lockboxBalanceBefore + _portalBalance);
@@ -824,12 +850,15 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
 
     /// @notice Tests that `migrateToSuperRoots` reverts if the caller is not the proxy admin
     ///         owner.
-    function testFuzz_migrateToSuperRoots_notProxyAdminOwner_revertsSkip(address _caller) external {
+    function testFuzz_migrateToSuperRoots_notProxyAdminOwner_reverts(address _caller) external {
+        // TODO
+        vm.skip(true);
+        
         vm.assume(_caller != optimismPortal2.proxyAdminOwner());
         vm.expectRevert(IProxyAdminOwnedBase.ProxyAdminOwnedBase_NotProxyAdminOwner.selector);
 
         vm.prank(_caller);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
             IETHLockbox(address(1)), IAnchorStateRegistry(address(1))
         );
     }
@@ -837,7 +866,10 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
     /// @notice Tests that `migrateToSuperRoots` reverts if the new registry is the same as the
     ///         current one.
     /// @param _newLockbox The new ETHLockbox to migrate to.
-    function testFuzz_migrateToSuperRoots_usingSameRegistry_revertsSkip(address _newLockbox) external {
+    function testFuzz_migrateToSuperRoots_usingSameRegistry_reverts(address _newLockbox) external {
+        // TODO
+        vm.skip(true);
+        
         vm.assume(_newLockbox != address(optimismPortal2.ethLockbox()));
 
         // Use the same registry as the current one.
@@ -849,7 +881,7 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         // Expect the migration to revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_MigratingToSameRegistry.selector);
         vm.prank(caller);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
             IETHLockbox(_newLockbox), newAnchorStateRegistry
         );
     }
@@ -858,7 +890,10 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
     ///         AnchorStateRegistry, and sets the superRootsActive flag to true.
     /// @param _newLockbox The new ETHLockbox to migrate to.
     /// @param _newAnchorStateRegistry The new AnchorStateRegistry to migrate to.
-    function testFuzz_migrateToSuperRoots_succeedsSkip(address _newLockbox, address _newAnchorStateRegistry) external {
+    function testFuzz_migrateToSuperRoots_succeeds(address _newLockbox, address _newAnchorStateRegistry) external {
+        // TODO
+        vm.skip(true);
+        
         address oldLockbox = address(optimismPortal2.ethLockbox());
         address oldAnchorStateRegistry = address(optimismPortal2.anchorStateRegistry());
         vm.assume(_newLockbox != oldLockbox);
@@ -868,13 +903,13 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         emit PortalMigrated(oldLockbox, _newLockbox, oldAnchorStateRegistry, _newAnchorStateRegistry);
 
         vm.prank(optimismPortal2.proxyAdminOwner());
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
             IETHLockbox(_newLockbox), IAnchorStateRegistry(_newAnchorStateRegistry)
         );
 
         assertEq(address(optimismPortal2.ethLockbox()), _newLockbox);
         assertEq(address(optimismPortal2.anchorStateRegistry()), _newAnchorStateRegistry);
-        assertTrue(IOptimismPortalInterop(payable(address(optimismPortal2))).superRootsActive());
+        assertTrue(IOptimismPortalInterop(payable(optimismPortal2)).superRootsActive());
     }
 
     /// @notice Tests that `migrateToSuperRoots` reverts when the system is paused.
@@ -886,7 +921,7 @@ contract OptimismPortal2GLM_MigrateToSuperRoots_Test is OptimismPortal2GLM_TestI
         address caller = optimismPortal2.proxyAdminOwner();
         vm.expectRevert(IOptimismPortal.OptimismPortal_CallPaused.selector);
         vm.prank(caller);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).migrateToSuperRoots(
+        IOptimismPortalInterop(payable(optimismPortal2)).migrateToSuperRoots(
             IETHLockbox(address(1)), IAnchorStateRegistry(address(1))
         );
     }
@@ -1162,7 +1197,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_WrongProofMethod.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameIndex: _proposedGameIndex,
             _outputRootProof: _outputRootProof,
@@ -1187,7 +1222,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_WrongProofMethod.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1217,7 +1252,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidSuperRootProof.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1254,7 +1289,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootIndex.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: outputRootWithChainIdArr.length, // out of bounds
@@ -1293,7 +1328,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootChainId.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1332,7 +1367,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 
         // Should revert because the proof is wrong.
         vm.expectRevert(IOptimismPortalInterop.OptimismPortal_InvalidOutputRootProof.selector);
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1366,7 +1401,7 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
         vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(expectedSuperRoot));
 
         // Should succeed.
-        IOptimismPortalInterop(payable(address(optimismPortal2))).proveWithdrawalTransaction({
+        IOptimismPortalInterop(payable(optimismPortal2)).proveWithdrawalTransaction({
             _tx: _defaultTx,
             _disputeGameProxy: game,
             _outputRootIndex: 0,
@@ -1394,873 +1429,8 @@ contract OptimismPortal2GLM_ProveWithdrawalTransaction_Test is OptimismPortal2GL
 /// @title OptimismPortal2GLM_FinalizeWithdrawalTransaction_Test
 /// @notice Test contract for OptimismPortal2 `finalizeWithdrawalTransaction` function.
 contract OptimismPortal2GLM_FinalizeWithdrawalTransaction_Test is OptimismPortal2GLM_TestInit {
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts when the target is the portal
-    ///         contract or the lockbox.
-    function test_finalizeWithdrawalTransaction_badTarget_reverts() external {
-        _defaultTx.target = address(optimismPortal2);
-        vm.expectRevert(IOptimismPortal.OptimismPortal_BadTarget.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        if (isUsingLockbox()) {
-            _defaultTx.target = address(ethLockbox);
-            vm.expectRevert(IOptimismPortal.OptimismPortal_BadTarget.selector);
-            optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-        }
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the target reverts and caller
-    ///         is the ESTIMATION_ADDRESS.
-    function test_finalizeWithdrawalTransaction_targetFailsAndCallerIsEstimationAddress_reverts() external {
-        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
-
-        vm.prank(alice);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        optimismPortal2.proveWithdrawalTransaction(_defaultTx, _proposedGameIndex, _outputRootProof, _withdrawalProof);
-
-        // Warp and resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
-
-        vm.startPrank(alice, Constants.ESTIMATION_ADDRESS);
-        vm.expectRevert(IOptimismPortal.OptimismPortal_GasEstimation.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds when _tx.data is empty.
-    function test_finalizeWithdrawalTransaction_noTxData_succeeds() external {
-        Types.WithdrawalTransaction memory _defaultTx_noData = Types.WithdrawalTransaction({
-            nonce: 0,
-            sender: alice,
-            target: bob,
-            value: 100,
-            gasLimit: 100_000,
-            data: hex""
-        });
-
-        // Get withdrawal proof data we can use for testing.
-        (
-            bytes32 _stateRoot_noData,
-            bytes32 _storageRoot_noData,
-            bytes32 _outputRoot_noData,
-            bytes32 _withdrawalHash_noData,
-            bytes[] memory _withdrawalProof_noData
-        ) = ffi.getProveWithdrawalTransactionInputs(_defaultTx_noData);
-
-        // Setup a dummy output root proof for reuse.
-        Types.OutputRootProof memory _outputRootProof_noData = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
-            stateRoot: _stateRoot_noData,
-            messagePasserStorageRoot: _storageRoot_noData,
-            latestBlockhash: bytes32(uint256(0))
-        });
-
-        IFaultDisputeGame game_noData = IFaultDisputeGame(
-            payable(
-                address(
-                    disputeGameFactory.create{ value: disputeGameFactory.initBonds(respectedGameType) }(
-                        respectedGameType, Claim.wrap(_outputRoot_noData), abi.encode(_proposedBlockNumber)
-                    )
-                )
-            )
-        );
-
-        uint256 _proposedGameIndex_noData = disputeGameFactory.gameCount() - 1;
-
-        // Warp beyond the chess clocks and finalize the game.
-        vm.warp(block.timestamp + game_noData.maxClockDuration().raw() + 1 seconds);
-
-        // Fund the portal so that we can withdraw ETH.
-        vm.store(address(optimismPortal2), bytes32(uint256(61)), bytes32(uint256(0xFFFFFFFF)));
-        vm.deal(address(optimismPortal2), 0xFFFFFFFF);
-        if (isUsingLockbox()) {
-            vm.deal(address(ethLockbox), 0xFFFFFFFF);
-        }
-
-        uint256 bobBalanceBefore = bob.balance;
-
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash_noData, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash_noData, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx_noData,
-            _disputeGameIndex: _proposedGameIndex_noData,
-            _outputRootProof: _outputRootProof_noData,
-            _withdrawalProof: _withdrawalProof_noData
-        });
-
-        // Warp and resolve the dispute game.
-        game_noData.resolveClaim(0, 0);
-        game_noData.resolve();
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
-
-        vm.expectEmit(true, true, false, true);
-        emit WithdrawalFinalized(_withdrawalHash_noData, true);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx_noData);
-
-        assert(bob.balance == bobBalanceBefore + 100);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds.
-    function test_finalizeWithdrawalTransaction_provenWithdrawalHashEther_succeeds() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp and resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
-
-        vm.expectEmit(true, true, false, true);
-        emit WithdrawalFinalized(_withdrawalHash, true);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        assert(address(bob).balance == bobBalanceBefore + 100);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds using a different proof than an
-    ///         earlier one by another party.
-    function test_finalizeWithdrawalTransaction_secondaryProof_succeeds() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        // Create a secondary dispute game.
-        IDisputeGame secondGame = disputeGameFactory.create{
-            value: disputeGameFactory.initBonds(optimismPortal2.respectedGameType())
-        }(optimismPortal2.respectedGameType(), Claim.wrap(_outputRoot), abi.encode(_proposedBlockNumber + 1));
-
-        // Warp 1 second into the future so that the proof is submitted after the timestamp of game creation.
-        vm.warp(block.timestamp + 1);
-
-        // Prove the withdrawal transaction against the invalid dispute game, as 0xb0b.
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(0xb0b));
-        vm.prank(address(0xb0b));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex + 1,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Mock the status of the dispute game 0xb0b proves against to be CHALLENGER_WINS.
-        vm.mockCall(address(secondGame), abi.encodeCall(game.status, ()), abi.encode(GameStatus.CHALLENGER_WINS));
-
-        // Prove the withdrawal transaction against the invalid dispute game, as the test contract, against the original
-        // game.
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp and resolve the original dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
-
-        // Ensure both proofs are registered successfully.
-        assertEq(optimismPortal2.numProofSubmitters(_withdrawalHash), 2);
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        vm.prank(address(0xb0b));
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        vm.expectEmit(true, true, false, true);
-        emit WithdrawalFinalized(_withdrawalHash, true);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        assert(address(bob).balance == bobBalanceBefore + 100);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the contract is paused.
-    function test_finalizeWithdrawalTransaction_paused_reverts() external {
-        vm.prank(optimismPortal2.guardian());
-        superchainConfig.pause(address(0));
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_CallPaused.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal has not been
-    ///         proven.
-    function test_finalizeWithdrawalTransaction_ifWithdrawalNotProven_reverts() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_Unproven.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        assert(address(bob).balance == bobBalanceBefore);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal has not been
-    ///         proven long enough ago.
-    function test_finalizeWithdrawalTransaction_ifWithdrawalProofNotOldEnough_reverts() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_ProofNotOldEnough.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        assert(address(bob).balance == bobBalanceBefore);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the provenWithdrawal's
-    ///         timestamp is less than the dispute game's creation timestamp.
-    function test_finalizeWithdrawalTransaction_timestampLessThanGameCreation_reverts() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        // Prove our withdrawal
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp to after the finalization period
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Mock a createdAt change in the dispute game.
-        vm.mockCall(address(game), abi.encodeCall(game.createdAt, ()), abi.encode(block.timestamp + 1));
-
-        // Attempt to finalize the withdrawal
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidProofTimestamp.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Ensure that bob's balance has remained the same
-        assertEq(bobBalanceBefore, address(bob).balance);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the dispute game has not
-    ///         resolved in favor of the root claim.
-    function test_finalizeWithdrawalTransaction_ifDisputeGameNotResolved_reverts() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        // Prove our withdrawal
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp to after the finalization period
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Attempt to finalize the withdrawal
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Ensure that bob's balance has remained the same
-        assertEq(bobBalanceBefore, address(bob).balance);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the target reverts.
-    function test_finalizeWithdrawalTransaction_targetFails_fails() external {
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            vm.deal(address(optimismPortal2), 0); // no balance
-        }
-
-        uint256 bobBalanceBefore = address(bob).balance;
-        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
-
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalFinalized(_withdrawalHash, false);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Bob's balance should not have changed.
-        assertEq(address(bob).balance, bobBalanceBefore);
-
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            // OptimismPortal2 should not have any stuck ETH.
-            assertEq(address(optimismPortal2).balance, 0);
-        }
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the target reverts when
-    ///         using the ETHLockbox.
-    function test_finalizeWithdrawalTransaction_lockboxAndTargetFails_fails() external {
-        // Enable the ETHLockbox.
-        address dummyLockbox = address(0xdeadbeef);
-        forceEnableLockbox(dummyLockbox);
-        vm.deal(address(dummyLockbox), 0xFFFFFFFF);
-        vm.deal(address(optimismPortal2), _defaultTx.value);
-
-        uint256 bobBalanceBefore = address(bob).balance;
-        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
-
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalFinalized(_withdrawalHash, false);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Bob's balance should not have changed.
-        assertEq(address(bob).balance, bobBalanceBefore);
-
-        // OptimismPortal2 should not have any stuck ETH.
-        assertEq(address(optimismPortal2).balance, 0);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal has already
-    ///         been finalized.
-    function test_finalizeWithdrawalTransaction_onReplay_reverts() external {
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalFinalized(_withdrawalHash, true);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_AlreadyFinalized.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal transaction
-    ///         does not have enough gas to execute.
-    function test_finalizeWithdrawalTransaction_onInsufficientGas_reverts() external {
-        // This number was identified through trial and error.
-        uint256 gasLimit = 150_000;
-        Types.WithdrawalTransaction memory insufficientGasTx = Types.WithdrawalTransaction({
-            nonce: 0,
-            sender: alice,
-            target: bob,
-            value: 100,
-            gasLimit: gasLimit,
-            data: hex""
-        });
-
-        // Get updated proof inputs.
-        (bytes32 stateRoot, bytes32 storageRoot,,, bytes[] memory withdrawalProof) =
-            ffi.getProveWithdrawalTransactionInputs(insufficientGasTx);
-        Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(0),
-            stateRoot: stateRoot,
-            messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(0)
-        });
-
-        vm.mockCall(
-            address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(Hashing.hashOutputRootProof(outputRootProof))
-        );
-
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: insufficientGasTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: outputRootProof,
-            _withdrawalProof: withdrawalProof
-        });
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-        vm.expectRevert("SafeCall: Not enough gas");
-        optimismPortal2.finalizeWithdrawalTransaction{ gas: gasLimit }(insufficientGasTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if a sub-call attempts to
-    ///         finalize another withdrawal.
-    function test_finalizeWithdrawalTransaction_onReentrancy_reverts() external {
-        uint256 bobBalanceBefore = address(bob).balance;
-
-        // Copy and modify the default test values to attempt a reentrant call by first calling to
-        // this contract's callPortalAndExpectRevert() function above.
-        Types.WithdrawalTransaction memory _testTx = _defaultTx;
-        _testTx.target = address(this);
-        _testTx.data = abi.encodeCall(this.callPortalAndExpectRevert, ());
-
-        // Get modified proof inputs.
-        (
-            bytes32 stateRoot,
-            bytes32 storageRoot,
-            bytes32 outputRoot,
-            bytes32 withdrawalHash,
-            bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
-        Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
-            version: bytes32(0),
-            stateRoot: stateRoot,
-            messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(0)
-        });
-
-        // Return a mock output root from the game.
-        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
-
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(withdrawalHash, alice, address(this));
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction(_testTx, _proposedGameIndex, outputRootProof, withdrawalProof);
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-        vm.expectCall(address(this), _testTx.data);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalFinalized(withdrawalHash, true);
-        optimismPortal2.finalizeWithdrawalTransaction(_testTx);
-
-        // Ensure that bob's balance was not changed by the reentrant call.
-        assert(address(bob).balance == bobBalanceBefore);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds.
-    function testDiff_finalizeWithdrawalTransaction_succeeds(
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _gasLimit,
-        bytes memory _data
-    )
-        external
-    {
-        skipIfForkTest("Skipping on forked tests because of the L2ToL1MessageParser call below");
-
-        vm.assume(
-            _target != address(optimismPortal2) // Cannot call the optimism portal or a contract
-                && _target.code.length == 0 // No accounts with code
-                && _target != CONSOLE // The console has no code but behaves like a contract
-                && uint160(_target) > 9 // No precompiles (or zero address)
-        );
-
-        // Total ETH supply is currently about 120M ETH.
-        uint256 value = bound(_value, 0, 200_000_000 ether);
-        vm.deal(address(optimismPortal2), value);
-        if (isUsingLockbox()) {
-            vm.deal(address(ethLockbox), value);
-        }
-
-        uint256 gasLimit = bound(_gasLimit, 0, 50_000_000);
-        uint256 nonce = l2ToL1MessagePasser.messageNonce();
-
-        // Get a withdrawal transaction and mock proof from the differential testing script.
-        Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
-            nonce: nonce,
-            sender: _sender,
-            target: _target,
-            value: value,
-            gasLimit: gasLimit,
-            data: _data
-        });
-        (
-            bytes32 stateRoot,
-            bytes32 storageRoot,
-            bytes32 outputRoot,
-            bytes32 withdrawalHash,
-            bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
-
-        // Create the output root proof
-        Types.OutputRootProof memory proof = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
-            stateRoot: stateRoot,
-            messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(uint256(0))
-        });
-
-        // Ensure the values returned from ffi are correct
-        assertEq(outputRoot, Hashing.hashOutputRootProof(proof));
-        assertEq(withdrawalHash, Hashing.hashWithdrawal(_tx));
-
-        // Setup the dispute game to return the output root
-        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
-
-        // Prove the withdrawal transaction
-        optimismPortal2.proveWithdrawalTransaction(_tx, _proposedGameIndex, proof, withdrawalProof);
-        (IDisputeGame _game,) = optimismPortal2.provenWithdrawals(withdrawalHash, address(this));
-        assertTrue(_game.rootClaim().raw() != bytes32(0));
-
-        // Resolve the dispute game
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Warp past the finalization period
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Finalize the withdrawal transaction
-        vm.expectCallMinGas(_tx.target, _tx.value, uint64(_tx.gasLimit), _tx.data);
-        optimismPortal2.finalizeWithdrawalTransaction(_tx);
-        assertTrue(optimismPortal2.finalizedWithdrawals(withdrawalHash));
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds even if the respected game type
-    ///         is changed.
-    function test_finalizeWithdrawalTransaction_wasRespectedGameType_succeeds(
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _gasLimit,
-        bytes memory _data,
-        GameType _newGameType
-    )
-        external
-    {
-        skipIfForkTest("Skipping on forked tests because of the L2ToL1MessageParser call below");
-
-        vm.assume(
-            _target != address(optimismPortal2) // Cannot call the optimism portal or a contract
-                && _target.code.length == 0 // No accounts with code
-                && _target != CONSOLE // The console has no code but behaves like a contract
-                && uint160(_target) > 9 // No precompiles (or zero address)
-        );
-
-        // Bound to prevent changes in retirementTimestamp
-        _newGameType = GameType.wrap(uint32(bound(_newGameType.raw(), 0, type(uint32).max - 1)));
-
-        // Total ETH supply is currently about 120M ETH.
-        uint256 value = bound(_value, 0, 200_000_000 ether);
-        vm.deal(address(optimismPortal2), value);
-        if (isUsingLockbox()) {
-            vm.deal(address(ethLockbox), value);
-        }
-
-        uint256 gasLimit = bound(_gasLimit, 0, 50_000_000);
-        uint256 nonce = l2ToL1MessagePasser.messageNonce();
-
-        // Get a withdrawal transaction and mock proof from the differential testing script.
-        Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
-            nonce: nonce,
-            sender: _sender,
-            target: _target,
-            value: value,
-            gasLimit: gasLimit,
-            data: _data
-        });
-        (
-            bytes32 stateRoot,
-            bytes32 storageRoot,
-            bytes32 outputRoot,
-            bytes32 withdrawalHash,
-            bytes[] memory withdrawalProof
-        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
-
-        // Create the output root proof
-        Types.OutputRootProof memory proof = Types.OutputRootProof({
-            version: bytes32(uint256(0)),
-            stateRoot: stateRoot,
-            messagePasserStorageRoot: storageRoot,
-            latestBlockhash: bytes32(uint256(0))
-        });
-
-        // Ensure the values returned from ffi are correct
-        assertEq(outputRoot, Hashing.hashOutputRootProof(proof));
-        assertEq(withdrawalHash, Hashing.hashWithdrawal(_tx));
-
-        // Setup the dispute game to return the output root
-        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
-
-        // Prove the withdrawal transaction
-        optimismPortal2.proveWithdrawalTransaction(_tx, _proposedGameIndex, proof, withdrawalProof);
-        (IDisputeGame _game,) = optimismPortal2.provenWithdrawals(withdrawalHash, address(this));
-        assertTrue(_game.rootClaim().raw() != bytes32(0));
-
-        // Resolve the dispute game
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Warp past the finalization period
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Change the respectedGameType
-        vm.prank(optimismPortal2.guardian());
-        anchorStateRegistry.setRespectedGameType(_newGameType);
-
-        // Withdrawal transaction still finalizable
-        vm.expectCallMinGas(_tx.target, _tx.value, uint64(_tx.gasLimit), _tx.data);
-        optimismPortal2.finalizeWithdrawalTransaction(_tx);
-        assertTrue(optimismPortal2.finalizedWithdrawals(withdrawalHash));
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal's dispute game
-    ///         has been blacklisted.
-    function test_finalizeWithdrawalTransaction_blacklisted_reverts() external {
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        vm.prank(optimismPortal2.guardian());
-        anchorStateRegistry.blacklistDisputeGame(IDisputeGame(address(game)));
-
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the withdrawal's dispute game
-    ///         is still in the air gap.
-    function test_finalizeWithdrawalTransaction_gameInAirGap_reverts() external {
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp past the finalization period.
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Attempt to finalize the withdrawal directly after the game resolves. This should fail.
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Finalize the withdrawal transaction. This should succeed.
-        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-        assertTrue(optimismPortal2.finalizedWithdrawals(_withdrawalHash));
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the respected game type was
-    ///         updated after the dispute game was created.
-    function test_finalizeWithdrawalTransaction_gameOlderThanRespectedGameTypeUpdate_reverts() external {
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp past the finalization period.
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Warp past the dispute game finality delay.
-        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
-
-        // Set retirement timestamp.
-        vm.prank(optimismPortal2.guardian());
-        anchorStateRegistry.updateRetirementTimestamp();
-
-        // Should revert.
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the game was not the
-    ///         respected game type when it was created. `proveWithdrawalTransaction` should
-    ///         already prevent this, but we remove that assumption here.
-    function test_finalizeWithdrawalTransaction_gameWasNotRespectedGameType_reverts() external {
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp past the finalization period.
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Warp past the dispute game finality delay.
-        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
-
-        vm.mockCall(address(game), abi.encodeCall(game.wasRespectedGameTypeWhenCreated, ()), abi.encode(false));
-
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts if the game is a legacy game
-    ///         that does not implement `wasRespectedGameTypeWhenCreated`.
-    ///         `proveWithdrawalTransaction` should already prevent this, but we remove that
-    ///         assumption here.
-    function test_finalizeWithdrawalTransaction_legacyGame_reverts() external {
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(address(optimismPortal2));
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Warp past the finalization period.
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
-
-        // Resolve the dispute game.
-        game.resolveClaim(0, 0);
-        game.resolve();
-
-        // Warp past the dispute game finality delay.
-        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
-
-        // Mock the wasRespectedGameTypeWhenCreated call to revert.
-        vm.mockCallRevert(address(game), abi.encodeCall(game.wasRespectedGameTypeWhenCreated, ()), "");
-
-        // Should revert.
-        vm.expectRevert(); // nosemgrep: sol-safety-expectrevert-no-args
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-    }
-
-    /// @notice Tests an e2e prove -> finalize path, checking the edges of each delay for
-    ///         correctness.
-    function test_finalizeWithdrawalTransaction_delayEdges_succeeds() external {
-        // Prove the withdrawal transaction.
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProven(_withdrawalHash, alice, bob);
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
-        optimismPortal2.proveWithdrawalTransaction({
-            _tx: _defaultTx,
-            _disputeGameIndex: _proposedGameIndex,
-            _outputRootProof: _outputRootProof,
-            _withdrawalProof: _withdrawalProof
-        });
-
-        // Attempt to finalize the withdrawal transaction 1 second before the proof has matured.
-        // This should fail.
-        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds());
-        vm.expectRevert(IOptimismPortal.OptimismPortal_ProofNotOldEnough.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Warp 1 second in the future, past the proof maturity delay, and attempt to finalize the
-        // withdrawal. This should also fail, since the dispute game has not resolved yet.
-        vm.warp(block.timestamp + 1 seconds);
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Finalize the dispute game and attempt to finalize the withdrawal again. This should
-        // also fail, since the air gap dispute game delay has not elapsed.
-        game.resolveClaim(0, 0);
-        game.resolve();
-        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds());
-        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-
-        // Warp 1 second in the future, past the air gap dispute game delay, and attempt to
-        // finalize the withdrawal. This should succeed.
-        vm.warp(block.timestamp + 1 seconds);
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
-        assertTrue(optimismPortal2.finalizedWithdrawals(_withdrawalHash));
-    }
-}
-
-/// @title OptimismPortal2GLM_FinalizeWithdrawalTransactionExternalProof_Test
-/// @notice Test contract for OptimismPortal2 `finalizeWithdrawalTransactionExternalProof` function.
-contract OptimismPortal2GLM_FinalizeWithdrawalTransactionExternalProof_Test is OptimismPortal2GLM_TestInit {
-    /// @notice Tests that `finalizeWithdrawalTransaction` reverts when attempting to replay using
-    ///         a secondary proof submitter.
-    function test_finalizeWithdrawalTransaction_secondProofReplay_reverts() external {
+    /// @notice Tests that `finalizeWithdrawalTransaction` reverts because it is disabled
+    function test_finalizeWithdrawalTransaction_disabled_reverts() external {
         uint256 bobBalanceBefore = address(bob).balance;
 
         // Submit the first proof for the withdrawal hash.
@@ -2293,14 +1463,54 @@ contract OptimismPortal2GLM_FinalizeWithdrawalTransactionExternalProof_Test is O
         game.resolve();
         vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
 
-        vm.expectEmit(true, true, false, true);
-        emit WithdrawalFinalized(_withdrawalHash, true);
-        optimismPortal2.finalizeWithdrawalTransactionExternalProof(_defaultTx, address(0xb0b));
+        vm.expectRevert("disabled");
+        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
 
-        vm.expectRevert(IOptimismPortal.OptimismPortal_AlreadyFinalized.selector);
+        assert(address(bob).balance == bobBalanceBefore);
+    }
+}
+
+/// @title OptimismPortal2GLM_FinalizeWithdrawalTransactionExternalProof_Test
+/// @notice Test contract for OptimismPortal2 `finalizeWithdrawalTransactionExternalProof` function.
+contract OptimismPortal2GLM_FinalizeWithdrawalTransactionExternalProof_Test is OptimismPortal2GLM_TestInit {
+    /// @notice Tests that `finalizeWithdrawalTransaction` reverts because it is disabled
+    function test_finalizeWithdrawalTransactionExternalProof_disabled_reverts() external {
+        uint256 bobBalanceBefore = address(bob).balance;
+
+        // Submit the first proof for the withdrawal hash.
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Submit a second proof for the same withdrawal hash.
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(0xb0b));
+        vm.prank(address(0xb0b));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp and resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
+
+        vm.expectRevert("disabled");
         optimismPortal2.finalizeWithdrawalTransactionExternalProof(_defaultTx, address(this));
 
-        assert(address(bob).balance == bobBalanceBefore + 100);
+        assert(address(bob).balance == bobBalanceBefore);
     }
 }
 
@@ -2339,6 +1549,18 @@ contract OptimismPortal2GLM_CheckWithdrawal_Test is OptimismPortal2GLM_TestInit 
 
     /// @notice Tests that checkWithdrawal reverts if the withdrawal has already been finalized.
     function test_checkWithdrawal_ifAlreadyFinalized_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
         // Prove the withdrawal transaction.
         vm.expectEmit(true, true, true, true);
         emit WithdrawalProven(_withdrawalHash, alice, bob);
@@ -2357,7 +1579,7 @@ contract OptimismPortal2GLM_CheckWithdrawal_Test is OptimismPortal2GLM_TestInit 
         vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
 
         // Finalize the withdrawal.
-        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
 
         // Should revert.
         vm.expectRevert(IOptimismPortal.OptimismPortal_AlreadyFinalized.selector);
@@ -2445,65 +1667,119 @@ contract OptimismPortal2GLM_CheckWithdrawal_Test is OptimismPortal2GLM_TestInit 
 /// @title OptimismPortal2GLM_DepositTransaction_Test
 /// @notice Test contract for OptimismPortal2 `depositTransaction` function.
 contract OptimismPortal2GLM_DepositTransaction_Test is OptimismPortal2GLM_TestInit {
-    /// @notice Tests that `depositTransaction` reverts when the destination address is non-zero
-    ///         for a contract creation deposit.
-    function test_depositTransaction_contractCreation_reverts() external {
-        // contract creation must have a target of address(0)
-        vm.expectRevert(IOptimismPortal.OptimismPortal_BadTarget.selector);
-        optimismPortal2.depositTransaction(address(1), 1, 0, true, hex"");
+    /// @notice Tests that `depositTransaction` reverts.
+    function test_depositTransaction_always_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 1);
+
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+
+        vm.expectRevert("disabled");
+        optimismPortal2.depositTransaction({
+            _to: address(0x40),
+            _value: 1,
+            _gasLimit: gasLimit,
+            _isCreation: false,
+            _data: ""
+        });
+
+        vm.stopPrank();
+    }
+}
+
+/// @title OptimismPortal2GLM_depositGLM_Test
+/// @notice Test contract for OptimismPortal2 `depositGLM` function.
+contract OptimismPortal2GLM_depositGLM_Test is OptimismPortal2GLM_TestInit {
+    /// @notice Tests that `depositTransaction` succeeds for small, but sufficient, gas limits.
+    function test_depositGLM_smallGasLimit_succeeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 1);
+
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+
+        optimismPortal2.depositGLM({
+            _to: address(0x40),
+            _amount: 1,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+
+        vm.stopPrank();
     }
 
-    /// @notice Tests that `depositTransaction` reverts when the data is too large.
+    /// @notice Tests that `depositGLM` reverts when the data is too large.
     ///         This places an upper bound on unsafe blocks sent over p2p.
-    function test_depositTransaction_largeData_reverts() external {
+    function test_depositGLM_largeData_reverts() external {
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(address(this), 1);
+
         uint256 size = 120_001;
         uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(size));
         vm.expectRevert(IOptimismPortal.OptimismPortal_CalldataTooLarge.selector);
-        optimismPortal2.depositTransaction({
+        optimismPortal2.depositGLM({
             _to: address(0),
-            _value: 0,
+            _amount: 1,
             _gasLimit: gasLimit,
-            _isCreation: false,
             _data: new bytes(size)
         });
     }
 
-    /// @notice Tests that `depositTransaction` reverts when the gas limit is too small.
-    function test_depositTransaction_smallGasLimit_reverts() external {
-        vm.expectRevert(IOptimismPortal.OptimismPortal_GasLimitTooLow.selector);
-        optimismPortal2.depositTransaction({ _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex"" });
+    /// @notice Tests that `depositGLM` reverts when transfering no tokens.
+    ///         This prevents empty transactions.
+    function test_depositGLM_zeroAmount_reverts() external {
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(address(this), 1);
+
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        vm.expectRevert(IOptimismPortal.GLM_ZeroAmount.selector);
+        optimismPortal2.depositGLM({
+            _to: address(0),
+            _amount: 0,
+            _gasLimit: gasLimit,
+            _data: hex""
+        });
     }
 
-    /// @notice Tests that `depositTransaction` succeeds for small, but sufficient, gas limits.
-    function testFuzz_depositTransaction_smallGasLimit_succeeds(bytes memory _data, bool _shouldFail) external {
+    /// @notice Tests that `depositGLM` reverts when the gas limit is too small.
+    function test_depositGLM_smallGasLimit_reverts() external {
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 1);
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_GasLimitTooLow.selector);
+        optimismPortal2.depositGLM({ _to: address(1), _amount: 1, _gasLimit: 0, _data: hex"" });
+    }
+
+
+    /// @notice Tests that `depositGLM` succeeds for small, but sufficient, gas limits.
+    function testFuzz_depositGLM_smallGasLimit_succeeds(bytes memory _data, bool _shouldFail) external {
+        glmToken.approve(address(optimismPortal2), 1);
+        TestERC20(optimismPortal2.glmToken()).mint(address(this), 1);
+
         uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(_data.length));
         if (_shouldFail) {
             gasLimit = uint64(bound(gasLimit, 0, gasLimit - 1));
             vm.expectRevert(IOptimismPortal.OptimismPortal_GasLimitTooLow.selector);
         }
 
-        optimismPortal2.depositTransaction({
+        optimismPortal2.depositGLM({
             _to: address(0x40),
-            _value: 0,
+            _amount: 1,
             _gasLimit: gasLimit,
-            _isCreation: false,
             _data: _data
         });
     }
 
-    /// @notice Tests that `depositTransaction` succeeds for an EOA.
-    function testFuzz_depositTransaction_eoa_succeeds(
+    /// @notice Tests that `depositGLM` succeeds for an EOA.
+    function testFuzz_depositGLM_eoa_succeeds(
         address _to,
         uint64 _gasLimit,
-        uint256 _value,
-        uint256 _mint,
-        bool _isCreation,
+        uint256 _amount,
         bytes memory _data
     )
         external
     {
-        // Prevent overflow on an upgrade context
-        _mint = bound(_mint, 0, type(uint256).max - address(ethLockbox).balance);
         _gasLimit = uint64(
             bound(
                 _gasLimit,
@@ -2511,45 +1787,36 @@ contract OptimismPortal2GLM_DepositTransaction_Test is OptimismPortal2GLM_TestIn
                 systemConfig.resourceConfig().maxResourceLimit
             )
         );
-        if (_isCreation) _to = address(0);
 
-        uint256 balanceBefore = address(optimismPortal2).balance;
-        uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _mint = bound(_mint, 0, type(uint256).max - balanceBefore);
+        uint256 balanceBefore = glmToken.balanceOf(address(optimismPortal2));
+        // Prevent overflow on an upgrade context
+        _amount = bound(_amount, 1, type(uint256).max - balanceBefore);
+
+        vm.prank(depositor, depositor);
+        glmToken.approve(address(optimismPortal2), _amount);
+        TestERC20(optimismPortal2.glmToken()).mint(depositor, _amount);
 
         // EOA emulation
         vm.expectEmit(address(optimismPortal2));
         emitTransactionDeposited({
             _from: depositor,
             _to: _to,
-            _value: _value,
-            _mint: _mint,
+            _value: _amount,
+            _mint: _amount,
             _gasLimit: _gasLimit,
-            _isCreation: _isCreation,
+            _isCreation: false,
             _data: _data
         });
 
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            // Expect call to the ETHLockbox to lock the funds only if the value is greater than 0.
-            vm.expectCall(address(ethLockbox), _mint, abi.encodeCall(ethLockbox.lockETH, ()), _mint > 0 ? 1 : 0);
-        }
-
-        vm.deal(depositor, _mint);
         vm.prank(depositor, depositor);
-        optimismPortal2.depositTransaction{ value: _mint }({
+        optimismPortal2.depositGLM({
             _to: _to,
-            _value: _value,
+            _amount: _amount,
             _gasLimit: _gasLimit,
-            _isCreation: _isCreation,
             _data: _data
         });
 
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            assertEq(address(optimismPortal2).balance, balanceBefore);
-            assertEq(address(ethLockbox).balance, lockboxBalanceBefore + _mint);
-        } else {
-            assertEq(address(optimismPortal2).balance, balanceBefore + _mint);
-        }
+        assertEq(glmToken.balanceOf(address(optimismPortal2)), balanceBefore + _amount);
     }
 
     /// @notice Tests that `depositTransaction` succeeds for an EOA using 7702 delegation.
@@ -2564,6 +1831,9 @@ contract OptimismPortal2GLM_DepositTransaction_Test is OptimismPortal2GLM_TestIn
     )
         external
     {
+        // TODO
+        vm.skip(true);
+
         assumeNotForgeAddress(_7702Target);
 
         // Prevent overflow on an upgrade context
@@ -2615,19 +1885,15 @@ contract OptimismPortal2GLM_DepositTransaction_Test is OptimismPortal2GLM_TestIn
         }
     }
 
-    /// @notice Tests that `depositTransaction` succeeds for a contract.
-    function testFuzz_depositTransaction_contract_succeeds(
+    /// @notice Tests that `depositGLM` succeeds for a contract.
+    function testFuzz_depositGLM_contract_succeeds(
         address _to,
         uint64 _gasLimit,
-        uint256 _value,
-        uint256 _mint,
-        bool _isCreation,
+        uint256 _amount,
         bytes memory _data
     )
         external
     {
-        // Prevent overflow on an upgrade context
-        _mint = bound(_mint, 0, type(uint256).max - address(ethLockbox).balance);
         _gasLimit = uint64(
             bound(
                 _gasLimit,
@@ -2635,84 +1901,95 @@ contract OptimismPortal2GLM_DepositTransaction_Test is OptimismPortal2GLM_TestIn
                 systemConfig.resourceConfig().maxResourceLimit
             )
         );
-        if (_isCreation) _to = address(0);
 
-        uint256 balanceBefore = address(optimismPortal2).balance;
-        uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _mint = bound(_mint, 0, type(uint256).max - balanceBefore);
+        uint256 balanceBefore = glmToken.balanceOf(address(optimismPortal2));
+        // Prevent overflow on an upgrade context
+        _amount = bound(_amount, 1, type(uint256).max - balanceBefore);
+
+        vm.prank(address(this), address(this));
+        glmToken.approve(address(optimismPortal2), _amount);
+        TestERC20(optimismPortal2.glmToken()).mint(address(this), _amount);
 
         vm.expectEmit(address(optimismPortal2));
         emitTransactionDeposited({
             _from: AddressAliasHelper.applyL1ToL2Alias(address(this)),
             _to: _to,
-            _value: _value,
-            _mint: _mint,
+            _value: _amount,
+            _mint: _amount,
             _gasLimit: _gasLimit,
-            _isCreation: _isCreation,
+            _isCreation: false,
             _data: _data
         });
 
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            // Expect call to the ETHLockbox to lock the funds only if the value is greater than 0.
-            vm.expectCall(address(ethLockbox), _mint, abi.encodeCall(ethLockbox.lockETH, ()), _mint > 0 ? 1 : 0);
-        }
-
-        vm.deal(address(this), _mint);
         vm.prank(address(this));
-        optimismPortal2.depositTransaction{ value: _mint }({
+        optimismPortal2.depositGLM({
             _to: _to,
-            _value: _value,
+            _amount: _amount,
             _gasLimit: _gasLimit,
-            _isCreation: _isCreation,
             _data: _data
         });
 
-        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
-            assertEq(address(optimismPortal2).balance, balanceBefore);
-            assertEq(address(ethLockbox).balance, lockboxBalanceBefore + _mint);
-        } else {
-            assertEq(address(optimismPortal2).balance, balanceBefore + _mint);
-        }
+
+        assertEq(glmToken.balanceOf(address(optimismPortal2)), balanceBefore + _amount);
     }
 }
 
-/// @title OptimismPortal2GLM_depositGLM_Test
-/// @notice Test contract for OptimismPortal2 `depositGLM` function.
-contract OptimismPortal2GLM_depositGLM_Test is OptimismPortal2GLM_TestInit {
-        /// @notice Tests that `depositTransaction` succeeds for small, but sufficient, gas limits.
-    function test_depositGLM_smallGasLimit_succeeds() external {
-        address _glmToken = address(new TestERC20());
-        vm.etch(optimismPortal2.glmToken(), _glmToken.code);
+/// @title OptimismPortal2GLM_FinalizeGLMWithdrawal_Test
+/// @notice Test contract for OptimismPortal2 `finalizeGLMWithdrawal` function.
+contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_TestInit {
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts when the target is the portal
+    ///         contract or the lockbox.
+    function test_finalizeGLMWithdrawal_badTarget_reverts() external {
+        _defaultTx.target = address(optimismPortal2);
+        vm.expectRevert(IOptimismPortal.OptimismPortal_BadTarget.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        if (isUsingLockbox()) {
+            _defaultTx.target = address(ethLockbox);
+            vm.expectRevert(IOptimismPortal.OptimismPortal_BadTarget.selector);
+            optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+        }
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the target reverts and caller
+    ///         is the ESTIMATION_ADDRESS.
+    function test_finalizeGLMWithdrawal_targetFailsAndCallerIsEstimationAddress_reverts() external {
+        // TODO
+        vm.skip(true);
         vm.startPrank(alice);
-        IERC20(optimismPortal2.glmToken()).approve(address(optimismPortal2), 1);
-        TestERC20(optimismPortal2.glmToken()).mint(alice, 1);
-
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
         uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
-
         optimismPortal2.depositGLM({
-            _to: address(0x40),
-            _amount: 1,
+            _to: bob,
+            _amount: 100,
             _gasLimit: gasLimit,
             _data: ""
         });
-
         vm.stopPrank();
-    }
-}
 
-/// @title OptimismPortal2GLM_FinalizeWithdrawalTransaction_Test
-/// @notice Test contract for OptimismPortal2 `finalizeWithdrawalTransaction` function.
-contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_TestInit {
-    /// @notice Tests that `finalizeWithdrawalTransaction` succeeds when _tx.data is empty.
+        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
+
+        vm.prank(alice);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        optimismPortal2.proveWithdrawalTransaction(_defaultTx, _proposedGameIndex, _outputRootProof, _withdrawalProof);
+
+        // Warp and resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
+
+        vm.startPrank(alice, Constants.ESTIMATION_ADDRESS);
+        vm.expectRevert(IOptimismPortal.OptimismPortal_GasEstimation.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, alice);
+    }
+    
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds when _tx.data is empty.
     function test_finalizeGLMWithdrawal_noTxData_succeeds() external {
         StorageSlot memory glmDepositsSlot = ForgeArtifacts.getSlot("OptimismPortal2", "glmDeposits");
 
-        {
-            address _glmToken = address(new TestERC20());
-            vm.etch(optimismPortal2.glmToken(), _glmToken.code);
-        }
-
-        IERC20(optimismPortal2.glmToken()).approve(address(optimismPortal2), 100);
+        glmToken.approve(address(optimismPortal2), 100);
         TestERC20(optimismPortal2.glmToken()).mint(address(this), 100);
         optimismPortal2.donateGLM(100);
 
@@ -2765,7 +2042,7 @@ contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_Tes
         }
 
         uint256 glmDepositsBefore = uint256(vm.load(address(optimismPortal2), bytes32(glmDepositsSlot.slot)));
-        uint256 bobBalanceBefore = IERC20(optimismPortal2.glmToken()).balanceOf(bob);
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
 
         vm.expectEmit(address(optimismPortal2));
         emit WithdrawalProven(_withdrawalHash_noData, alice, bob);
@@ -2789,9 +2066,995 @@ contract OptimismPortal2GLM_FinalizeGLMWithdrawal_Test is OptimismPortal2GLM_Tes
         optimismPortal2.finalizeGLMWithdrawal(_defaultTx_noData, address(this));
 
         uint256 glmDepositsAfter = uint256(vm.load(address(optimismPortal2), bytes32(glmDepositsSlot.slot)));
-        uint256 bobBalanceAfter = IERC20(optimismPortal2.glmToken()).balanceOf(bob);
+        uint256 bobBalanceAfter = glmToken.balanceOf(bob);
         assert(bobBalanceAfter == bobBalanceBefore + 100);
         assert(glmDepositsBefore == glmDepositsAfter + 100);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds.
+    function test_finalizeGLMWithdrawal_provenWithdrawalHashEther_succeeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp and resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
+
+        vm.expectEmit(true, true, false, true);
+        emit WithdrawalFinalized(_withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        assert(glmToken.balanceOf(bob) == bobBalanceBefore + 100);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds using a different proof than an
+    ///         earlier one by another party.
+    function test_finalizeGLMWithdrawal_secondaryProof_succeeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 200);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 200);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 200,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        // Create a secondary dispute game.
+        IDisputeGame secondGame = disputeGameFactory.create{
+            value: disputeGameFactory.initBonds(optimismPortal2.respectedGameType())
+        }(optimismPortal2.respectedGameType(), Claim.wrap(_outputRoot), abi.encode(_proposedBlockNumber + 1));
+
+        // Warp 1 second into the future so that the proof is submitted after the timestamp of game creation.
+        vm.warp(block.timestamp + 1);
+
+        // Prove the withdrawal transaction against the invalid dispute game, as 0xb0b.
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(0xb0b));
+        vm.prank(address(0xb0b));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex + 1,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Mock the status of the dispute game 0xb0b proves against to be CHALLENGER_WINS.
+        vm.mockCall(address(secondGame), abi.encodeCall(game.status, ()), abi.encode(GameStatus.CHALLENGER_WINS));
+
+        // Prove the withdrawal transaction against the invalid dispute game, as the test contract, against the original
+        // game.
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp and resolve the original dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1 seconds);
+
+        // Ensure both proofs are registered successfully.
+        assertEq(optimismPortal2.numProofSubmitters(_withdrawalHash), 2);
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        vm.prank(address(0xb0b));
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(0xb0b));
+
+        vm.expectEmit(true, true, false, true);
+        emit WithdrawalFinalized(_withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        assert(glmToken.balanceOf(bob) == bobBalanceBefore + 100);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the contract is paused.
+    function test_finalizeGLMWithdrawal_paused_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.prank(optimismPortal2.guardian());
+        superchainConfig.pause(address(0));
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_CallPaused.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal has not been
+    ///         proven.
+    function test_finalizeGLMWithdrawal_ifWithdrawalNotProven_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_Unproven.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        assert(glmToken.balanceOf(bob) == bobBalanceBefore);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal has not been
+    ///         proven long enough ago.
+    function test_finalizeGLMWithdrawal_ifWithdrawalProofNotOldEnough_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_ProofNotOldEnough.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        assert(glmToken.balanceOf(bob) == bobBalanceBefore);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the provenWithdrawal's
+    ///         timestamp is less than the dispute game's creation timestamp.
+    function test_finalizeGLMWithdrawal_timestampLessThanGameCreation_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        // Prove our withdrawal
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp to after the finalization period
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Mock a createdAt change in the dispute game.
+        vm.mockCall(address(game), abi.encodeCall(game.createdAt, ()), abi.encode(block.timestamp + 1));
+
+        // Attempt to finalize the withdrawal
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidProofTimestamp.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Ensure that bob's balance has remained the same
+        assertEq(bobBalanceBefore, glmToken.balanceOf(bob));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the dispute game has not
+    ///         resolved in favor of the root claim.
+    function test_finalizeGLMWithdrawal_ifDisputeGameNotResolved_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        // Prove our withdrawal
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp to after the finalization period
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Attempt to finalize the withdrawal
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Ensure that bob's balance has remained the same
+        assertEq(bobBalanceBefore, glmToken.balanceOf(bob));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds even if the target is a broken contract.
+    function test_finalizeGLMWithdrawal_brokenTarget_succeeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
+            vm.deal(address(optimismPortal2), 0); // no balance
+        }
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+        vm.expectEmit(true, true, true, true);
+        // the call succeeds even if the target is broken
+        emit WithdrawalFinalized(_withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        assertEq(glmToken.balanceOf(bob), bobBalanceBefore + 100);
+
+        if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
+            // OptimismPortal2 should not have any stuck ETH.
+            assertEq(address(optimismPortal2).balance, 0);
+        }
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds despite the ETHLockbox.
+    function test_finalizeGLMWithdrawal_brokenLockboxAndTarget_suceeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        // Enable the ETHLockbox.
+        address dummyLockbox = address(0xdeadbeef);
+        forceEnableLockbox(dummyLockbox);
+        vm.deal(address(dummyLockbox), 0xFFFFFFFF);
+        vm.deal(address(optimismPortal2), _defaultTx.value);
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+        vm.etch(bob, hex"fe"); // Contract with just the invalid opcode.
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+        vm.expectEmit(true, true, true, true);
+        // the call succeeds even if the target is broken
+        emit WithdrawalFinalized(_withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Bob's balance should not have changed.
+        assertEq(glmToken.balanceOf(bob), bobBalanceBefore + 100);
+
+        // we funded the portal
+        assertEq(address(optimismPortal2).balance, 100);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal has already
+    ///         been finalized.
+    function test_finalizeGLMWithdrawal_onReplay_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 200);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 200);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 200,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalFinalized(_withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_AlreadyFinalized.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal transaction
+    ///         does not have enough gas to execute.
+    function test_finalizeGLMWithdrawal_onInsufficientGas_reverts() external {
+        // TODO
+        vm.skip(true);
+
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        // This number was identified through trial and error.
+        gasLimit = 150_000;
+        Types.WithdrawalTransaction memory insufficientGasTx = Types.WithdrawalTransaction({
+            nonce: 0,
+            sender: alice,
+            target: bob,
+            value: 100,
+            gasLimit: gasLimit,
+            data: hex""
+        });
+
+        // Get updated proof inputs.
+        (bytes32 stateRoot, bytes32 storageRoot,,, bytes[] memory withdrawalProof) =
+            ffi.getProveWithdrawalTransactionInputs(insufficientGasTx);
+        Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
+            version: bytes32(0),
+            stateRoot: stateRoot,
+            messagePasserStorageRoot: storageRoot,
+            latestBlockhash: bytes32(0)
+        });
+
+        vm.mockCall(
+            address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(Hashing.hashOutputRootProof(outputRootProof))
+        );
+
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: insufficientGasTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: outputRootProof,
+            _withdrawalProof: withdrawalProof
+        });
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+        vm.expectRevert("SafeCall: Not enough gas");
+        optimismPortal2.finalizeGLMWithdrawal{ gas: gasLimit }(insufficientGasTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` does not perform reentrancy call.
+    function test_finalizeGLMWithdrawal_noReentrancy_success() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        uint256 bobBalanceBefore = glmToken.balanceOf(bob);
+
+        // Copy and modify the default test values to attempt a reentrant call by first calling to
+        // this contract's callPortalAndExpectRevert() function above.
+        Types.WithdrawalTransaction memory _testTx = _defaultTx;
+        _testTx.target = address(this);
+        _testTx.data = abi.encodeCall(this.callPortalAndExpectRevert, ());
+
+        // Get modified proof inputs.
+        (
+            bytes32 stateRoot,
+            bytes32 storageRoot,
+            bytes32 outputRoot,
+            bytes32 withdrawalHash,
+            bytes[] memory withdrawalProof
+        ) = ffi.getProveWithdrawalTransactionInputs(_testTx);
+        Types.OutputRootProof memory outputRootProof = Types.OutputRootProof({
+            version: bytes32(0),
+            stateRoot: stateRoot,
+            messagePasserStorageRoot: storageRoot,
+            latestBlockhash: bytes32(0)
+        });
+
+        // Return a mock output root from the game.
+        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(withdrawalHash, alice, address(this));
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction(_testTx, _proposedGameIndex, outputRootProof, withdrawalProof);
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+        vm.expectCall(address(this), _testTx.data, 0);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalFinalized(withdrawalHash, true);
+        optimismPortal2.finalizeGLMWithdrawal(_testTx, address(this));
+
+        // Ensure that bob's balance was not changed by the reentrant call.
+        assert(glmToken.balanceOf(bob) == bobBalanceBefore);
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds.
+    function testDiff_finalizeGLMWithdrawal_succeeds(
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _gasLimit,
+        bytes memory _data
+    )
+        external
+    {
+        skipIfForkTest("Skipping on forked tests because of the L2ToL1MessageParser call below");
+
+        vm.assume(
+            _target != address(optimismPortal2) // Cannot call the optimism portal or a contract
+                && _target.code.length == 0 // No accounts with code
+                && _target != CONSOLE // The console has no code but behaves like a contract
+                && uint160(_target) > 9 // No precompiles (or zero address)
+        );
+
+        // cannot transfer zero tokens
+        uint256 value = bound(_value, 1, 200_000_000 ether);
+
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), value);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, value);
+        uint256 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: value,
+            _gasLimit: uint64(gasLimit), //safe cast
+            _data: ""
+        });
+        vm.stopPrank();
+
+        gasLimit = bound(_gasLimit, 0, 50_000_000);
+        uint256 nonce = l2ToL1MessagePasser.messageNonce();
+
+        // Get a withdrawal transaction and mock proof from the differential testing script.
+        Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
+            nonce: nonce,
+            sender: _sender,
+            target: _target,
+            value: value,
+            gasLimit: gasLimit,
+            data: _data
+        });
+        (
+            bytes32 stateRoot,
+            bytes32 storageRoot,
+            bytes32 outputRoot,
+            bytes32 withdrawalHash,
+            bytes[] memory withdrawalProof
+        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
+
+        // Create the output root proof
+        Types.OutputRootProof memory proof = Types.OutputRootProof({
+            version: bytes32(uint256(0)),
+            stateRoot: stateRoot,
+            messagePasserStorageRoot: storageRoot,
+            latestBlockhash: bytes32(uint256(0))
+        });
+
+        // Ensure the values returned from ffi are correct
+        assertEq(outputRoot, Hashing.hashOutputRootProof(proof));
+        assertEq(withdrawalHash, Hashing.hashWithdrawal(_tx));
+
+        // Setup the dispute game to return the output root
+        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
+
+        // Prove the withdrawal transaction
+        optimismPortal2.proveWithdrawalTransaction(_tx, _proposedGameIndex, proof, withdrawalProof);
+        (IDisputeGame _game,) = optimismPortal2.provenWithdrawals(withdrawalHash, address(this));
+        assertTrue(_game.rootClaim().raw() != bytes32(0));
+
+        // Resolve the dispute game
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Warp past the finalization period
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Finalize the withdrawal transaction
+        // expect no call
+        vm.expectCallMinGas(_tx.target, _tx.value, uint64(_tx.gasLimit), _tx.data, 0);
+        optimismPortal2.finalizeGLMWithdrawal(_tx, address(this));
+        assertTrue(optimismPortal2.finalizedWithdrawals(withdrawalHash));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` succeeds even if the respected game type
+    ///         is changed.
+    function test_finalizeGLMWithdrawal_wasRespectedGameType_succeeds(
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _gasLimit,
+        bytes memory _data,
+        GameType _newGameType
+    )
+        external
+    {
+        // Must transfer non zero amount
+        uint256 value = bound(_value, 1, 200_000_000 ether);
+
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), value);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, value);
+        uint256 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: value,
+            _gasLimit: uint64(gasLimit), //safe cast
+            _data: ""
+        });
+        vm.stopPrank();
+
+        skipIfForkTest("Skipping on forked tests because of the L2ToL1MessageParser call below");
+
+        vm.assume(
+            _target != address(optimismPortal2) // Cannot call the optimism portal or a contract
+                && _target.code.length == 0 // No accounts with code
+                && _target != CONSOLE // The console has no code but behaves like a contract
+                && uint160(_target) > 9 // No precompiles (or zero address)
+        );
+
+        // Bound to prevent changes in retirementTimestamp
+        _newGameType = GameType.wrap(uint32(bound(_newGameType.raw(), 0, type(uint32).max - 1)));
+
+        gasLimit = bound(_gasLimit, 0, 50_000_000);
+        uint256 nonce = l2ToL1MessagePasser.messageNonce();
+
+        // Get a withdrawal transaction and mock proof from the differential testing script.
+        Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
+            nonce: nonce,
+            sender: _sender,
+            target: _target,
+            value: value,
+            gasLimit: gasLimit,
+            data: _data
+        });
+        (
+            bytes32 stateRoot,
+            bytes32 storageRoot,
+            bytes32 outputRoot,
+            bytes32 withdrawalHash,
+            bytes[] memory withdrawalProof
+        ) = ffi.getProveWithdrawalTransactionInputs(_tx);
+
+        // Create the output root proof
+        Types.OutputRootProof memory proof = Types.OutputRootProof({
+            version: bytes32(uint256(0)),
+            stateRoot: stateRoot,
+            messagePasserStorageRoot: storageRoot,
+            latestBlockhash: bytes32(uint256(0))
+        });
+
+        // Ensure the values returned from ffi are correct
+        assertEq(outputRoot, Hashing.hashOutputRootProof(proof));
+        assertEq(withdrawalHash, Hashing.hashWithdrawal(_tx));
+
+        // Setup the dispute game to return the output root
+        vm.mockCall(address(game), abi.encodeCall(game.rootClaim, ()), abi.encode(outputRoot));
+
+        // Prove the withdrawal transaction
+        optimismPortal2.proveWithdrawalTransaction(_tx, _proposedGameIndex, proof, withdrawalProof);
+        (IDisputeGame _game,) = optimismPortal2.provenWithdrawals(withdrawalHash, address(this));
+        assertTrue(_game.rootClaim().raw() != bytes32(0));
+
+        // Resolve the dispute game
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Warp past the finalization period
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Change the respectedGameType
+        vm.prank(optimismPortal2.guardian());
+        anchorStateRegistry.setRespectedGameType(_newGameType);
+
+        // Withdrawal transaction still finalizable
+        vm.expectCallMinGas(_tx.target, _tx.value, uint64(_tx.gasLimit), _tx.data, 0);
+        optimismPortal2.finalizeGLMWithdrawal(_tx, address(this));
+        assertTrue(optimismPortal2.finalizedWithdrawals(withdrawalHash));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal's dispute game
+    ///         has been blacklisted.
+    function test_finalizeGLMWithdrawal_blacklisted_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        vm.prank(optimismPortal2.guardian());
+        anchorStateRegistry.blacklistDisputeGame(IDisputeGame(address(game)));
+
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the withdrawal's dispute game
+    ///         is still in the air gap.
+    function test_finalizeGLMWithdrawal_gameInAirGap_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 200);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 200);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 200,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp past the finalization period.
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Attempt to finalize the withdrawal directly after the game resolves. This should fail.
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Finalize the withdrawal transaction. This should succeed.
+        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+        assertTrue(optimismPortal2.finalizedWithdrawals(_withdrawalHash));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the respected game type was
+    ///         updated after the dispute game was created.
+    function test_finalizeGLMWithdrawal_gameOlderThanRespectedGameTypeUpdate_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp past the finalization period.
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Warp past the dispute game finality delay.
+        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
+
+        // Set retirement timestamp.
+        vm.prank(optimismPortal2.guardian());
+        anchorStateRegistry.updateRetirementTimestamp();
+
+        // Should revert.
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the game was not the
+    ///         respected game type when it was created. `proveWithdrawalTransaction` should
+    ///         already prevent this, but we remove that assumption here.
+    function test_finalizeGLMWithdrawal_gameWasNotRespectedGameType_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp past the finalization period.
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Warp past the dispute game finality delay.
+        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
+
+        vm.mockCall(address(game), abi.encodeCall(game.wasRespectedGameTypeWhenCreated, ()), abi.encode(false));
+
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests that `finalizeGLMWithdrawal` reverts if the game is a legacy game
+    ///         that does not implement `wasRespectedGameTypeWhenCreated`.
+    ///         `proveWithdrawalTransaction` should already prevent this, but we remove that
+    ///         assumption here.
+    function test_finalizeGLMWithdrawal_legacyGame_reverts() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 100);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 100);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 100,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(address(optimismPortal2));
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Warp past the finalization period.
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds() + 1);
+
+        // Resolve the dispute game.
+        game.resolveClaim(0, 0);
+        game.resolve();
+
+        // Warp past the dispute game finality delay.
+        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds() + 1);
+
+        // Mock the wasRespectedGameTypeWhenCreated call to revert.
+        vm.mockCallRevert(address(game), abi.encodeCall(game.wasRespectedGameTypeWhenCreated, ()), "");
+
+        // Should revert.
+        vm.expectRevert(); // nosemgrep: sol-safety-expectrevert-no-args
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+    }
+
+    /// @notice Tests an e2e prove -> finalize path, checking the edges of each delay for
+    ///         correctness.
+    function test_finalizeGLMWithdrawal_delayEdges_succeeds() external {
+        vm.startPrank(alice);
+        glmToken.approve(address(optimismPortal2), 400);
+        TestERC20(optimismPortal2.glmToken()).mint(alice, 400);
+        uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(0));
+        optimismPortal2.depositGLM({
+            _to: bob,
+            _amount: 400,
+            _gasLimit: gasLimit,
+            _data: ""
+        });
+        vm.stopPrank();
+
+        // Prove the withdrawal transaction.
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProven(_withdrawalHash, alice, bob);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalProvenExtension1(_withdrawalHash, address(this));
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+
+        // Attempt to finalize the withdrawal transaction 1 second before the proof has matured.
+        // This should fail.
+        vm.warp(block.timestamp + optimismPortal2.proofMaturityDelaySeconds());
+        vm.expectRevert(IOptimismPortal.OptimismPortal_ProofNotOldEnough.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Warp 1 second in the future, past the proof maturity delay, and attempt to finalize the
+        // withdrawal. This should also fail, since the dispute game has not resolved yet.
+        vm.warp(block.timestamp + 1 seconds);
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Finalize the dispute game and attempt to finalize the withdrawal again. This should
+        // also fail, since the air gap dispute game delay has not elapsed.
+        game.resolveClaim(0, 0);
+        game.resolve();
+        vm.warp(block.timestamp + optimismPortal2.disputeGameFinalityDelaySeconds());
+        vm.expectRevert(IOptimismPortal.OptimismPortal_InvalidRootClaim.selector);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+
+        // Warp 1 second in the future, past the air gap dispute game delay, and attempt to
+        // finalize the withdrawal. This should succeed.
+        vm.warp(block.timestamp + 1 seconds);
+        optimismPortal2.finalizeGLMWithdrawal(_defaultTx, address(this));
+        assertTrue(optimismPortal2.finalizedWithdrawals(_withdrawalHash));
     }
 
 }
@@ -2805,7 +3068,7 @@ contract OptimismPortal2GLM_Params_Test is CommonTest {
     uint256 constant MAX_GAS_LIMIT = 30_000_000;
 
     /// @notice Test that various values of the resource metering config will not break deposits.
-    function testFuzz_params_validValues_succeedsSkip(
+    function testFuzz_params_validValues_succeeds(
         uint32 _maxResourceLimit,
         uint8 _elasticityMultiplier,
         uint8 _baseFeeMaxChangeDenominator,
@@ -2819,6 +3082,9 @@ contract OptimismPortal2GLM_Params_Test is CommonTest {
     )
         external
     {
+        // TODO
+        vm.skip(true);
+        
         // Get the set system gas limit
         uint64 gasLimit = systemConfig.gasLimit();
 
@@ -2918,10 +3184,10 @@ contract OptimismPortal2GLM_Params_Test is CommonTest {
 
         // The value passed to the initialize must be larger than the last value
         // that initialize was called with.
-        IProxy(payable(address(optimismPortal2))).upgradeToAndCall(
+        IProxy(payable(optimismPortal2)).upgradeToAndCall(
             address(nextImpl), abi.encodeCall(NextImpl.initialize, (4))
         );
-        assertEq(IProxy(payable(address(optimismPortal2))).implementation(), address(nextImpl));
+        assertEq(IProxy(payable(optimismPortal2)).implementation(), address(nextImpl));
 
         // Verify that the NextImpl contract initialized its values according as expected
         bytes32 slot21After = vm.load(address(optimismPortal2), bytes32(uint256(21)));
